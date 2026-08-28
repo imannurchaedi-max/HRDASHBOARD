@@ -152,7 +152,7 @@ Header **baris 1**, data mulai **baris 2**.
 | O/P/Q | `TAHUN`/`BULAN`/`HARI` | — | **TIDAK dibaca** — statis, basi |
 | R | `URUTAN KONTRAK` | `Keterangan Kontrak`, `Urutan Kontrak` | siklus kontrak (`Kontrak ke-1`..`ke-10`) |
 | S | `TANGGAL AKHIR KONTRAK`| `Tgl Akhir Kontrak`, `Tanggal Akhir Kontrak` | **watchlist + bucket jatuh tempo** |
-| — | `TANGGAL AWAL KONTRAK` | — | **TIDAK dibaca oleh kode manapun** (bug diketahui, lihat §10). Field `tglAwalKontrak` di watchlist Contract diisi dari `tanggalMasuk` (tanggal join pertama), BUKAN dari kolom ini — bisa salah untuk karyawan kontrak ke-N (N>1). |
+| — | `TANGGAL AWAL KONTRAK` | — | dibaca sejak 28 Agu 2026 (tglAwalKontrak) — watchlist memakai kolom ini, fallback tanggalMasuk kalau kosong (fix B3). |
 | T | `ALAMAT LENGKAP` | `Alamat Lengkap`, `Alamat` | dibaca (`alamatLengkap`) |
 | U | `DESA` | `Desa` | dibaca (`desa`) |
 | V | `RT` | `Rt` | dibaca (`rt`) |
@@ -263,11 +263,22 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 - **Panel Turnover & Reason Keluar** — kolom AF (`Reason Keluar`) sudah dibaca tapi belum ada panel visual khusus.
 - **Drill-down profil per orang** — klik baris tabel untuk modal detail profil karyawan.
 - **Tren "per Cost Center per bulan" di panel Manning** — saat ini `trend` cuma total rencana gabungan semua Cost Center per bulan (line chart tunggal). Belum ada breakdown per-Cost-Center per-bulan (mis. multi-line, satu garis per Cost Center) walau data mentahnya (`nsBuildManningRecords_`) sudah punya kedua dimensi sekaligus. Hanya berlaku untuk sisi rencana — sisi aktual tidak punya riwayat bulanan sama sekali (MASTER KARYAWAN cuma snapshot kondisi sekarang).
-- **Bug `tglAwalKontrak` di Contract Watchlist** — diisi dari `tanggalMasuk` (tanggal join), bukan dari kolom `TANGGAL AWAL KONTRAK` yang sebenarnya ada di sheet tapi tidak pernah dibaca. Berpotensi salah untuk karyawan kontrak ke-N (N>1). Belum diperbaiki, perlu keputusan apakah ini disengaja atau memang bug.
+- **Password plaintext di sheet KARYAWAN (kolom F)** — tidak bisa diperbaiki dari project ini sendirian: sheet auth dipakai bersama DAM PORTAL & EWO, mengubah isi kolom ke hash akan merusak login aplikasi lain. Perlu keputusan & migrasi lintas-aplikasi.
 
 ---
 
 ## 11. Changelog
+
+### 28 Agu 2026 (sore) — Perbaikan hasil audit integritas (B1, C1, A1, B3, B5, C5, B2, D5)
+- **B1 (kritis)**: `nsParseDate_` — string tanggal angka ber-pemisah kini di-parse manual dengan konvensi Indonesia (hari-bulan-tahun) SEBELUM fallback `new Date()`. Sebelumnya `05/06/2020` terbaca 6 Mei (format US) — tanggal lahir/masuk/akhir kontrak bertipe string dengan hari <= 12 bergeser diam-diam. Rollover senyap (mis. 31 Feb) kini ditolak via verifikasi komponen. Dilindungi 6 test baru di harness.
+- **A1 (keamanan)**: endpoint data FAIL-CLOSED — fallback `client-nik` (bisa dipalsukan dari console browser) ditolak di `requireModuleAccess_`; identitas wajib dari email sesi Google. Deploy salah kini = menolak semua request, bukan membocorkan data.
+- **C1 (performa)**: sheet KARYAWAN tidak lagi dibaca 2x per request — memo per-invocation + CacheService 5 menit. Konsekuensi: perubahan akses/password efektif maksimal 5 menit.
+- **B3**: `tglAwalKontrak` di watchlist kini dibaca dari kolom `TANGGAL AWAL KONTRAK` yang asli (fallback `tanggalMasuk` kalau kosong).
+- **B5**: kartu KPI Contract mengikuti segment switcher (dihitung dari `perBucket` payload segmen, bukan `d.kpi` yang selalu AKTIF).
+- **C5**: warning NIK duplikat kini tampil di semua panel, bukan hanya Headcount.
+- **B2**: panel Manning menampilkan peringatan eksplisit saat periode lampau dipilih — sisi Aktual tetap snapshot hari ini, angka bersifat indikatif.
+- **D5**: dead payload `perKeteranganKontrak` + fungsi `sortKontrak` + whitelist `cSiklus` di check_html dibuang.
+- **A2 (tidak dikerjakan, dicatat di §10)**: password plaintext sheet KARYAWAN perlu keputusan lintas-aplikasi (sheet dipakai bersama DAM PORTAL & EWO).
 
 ### 28 Agu 2026 — Git repo + GitNexus live + perbaikan tooling & harness
 - **Git repo diinisialisasi** (branch `main`, baseline commit) — `detect-changes` GitNexus sekarang berfungsi. `.gitignore` mengecualikan `REF/` & `tools/sheet_values.json` (PII, audit A3), `.gitnexus/`, `graphify-out/cache/`, `node_modules/`.

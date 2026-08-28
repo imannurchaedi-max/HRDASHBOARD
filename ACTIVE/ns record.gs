@@ -17,12 +17,10 @@
   //
   // PERINGATAN DEPLOYMENT - WAJIB DIPATUHI:
   //  Deploy Web App HARUS "Execute as: Me" + "Who has access: Anyone within
-  //  [domain PT DAM]". JANGAN PERNAH mode "Anyone". Pembatasan domain adalah satu-
-  //  satunya jaminan Session.getActiveUser().getEmail() terisi. Tanpa itu,
-  //  resolveRequestUserProfile_ jatuh ke fallback nik kiriman client yang bisa
-  //  dipalsukan dari console browser - siapa pun bisa menarik data pribadi
-  //  (nama, tanggal lahir, alamat, kontrak) 745 karyawan. Sama seperti aturan
-  //  di dt_summary_architecture.md section 8.
+  //  [domain PT DAM]". JANGAN PERNAH mode "Anyone". Sejak 28 Agu 2026 endpoint
+  //  data FAIL-CLOSED: fallback nik kiriman client (bisa dipalsukan dari console
+  //  browser) DITOLAK - identitas wajib dari Session.getActiveUser().getEmail().
+  //  Deploy salah = aplikasi menolak semua request data, bukan membocorkan data.
   // =============================================================================
 
   // Spreadsheet sumber NS Record. Pola sama dengan KARYAWAN_SPREADSHEET_ID di
@@ -92,8 +90,23 @@
     throw new Error(label + ' gagal setelah 3 percobaan: ' + lastErr);
   }
 
+  // Cache dua lapis untuk sheet KARYAWAN (fix C1, 28 Agu 2026): sebelumnya TIAP
+  // endpoint membaca sheet ini 2x (resolveRequestUserProfile_ + hasModuleAccess_)
+  // tanpa cache - boros kuota & latency. Memo per-invocation menjamin 1 baca per
+  // request; CacheService 5 menit menghemat lintas request. Konsekuensi diterima:
+  // perubahan akses/password di sheet baru efektif maksimal 5 menit.
+  const KARYAWAN_CACHE_KEY = 'nsrecord:karyawan:v1';
+  const KARYAWAN_CACHE_TTL_SECONDS = 300;
+  let karyawanMemo_ = null; // GAS = 1 invocation per request, memo aman
+
   function getKaryawanData_() {
-    return nsWithRetry_('Baca data KARYAWAN', function() {
+    if (karyawanMemo_) return karyawanMemo_;
+    const cached = nsCacheGet_(KARYAWAN_CACHE_KEY);
+    if (cached) {
+      karyawanMemo_ = cached;
+      return cached;
+    }
+    const data = nsWithRetry_('Baca data KARYAWAN', function() {
       const ss = SpreadsheetApp.openById(KARYAWAN_SPREADSHEET_ID);
       // getSheetByName case-sensitive - terima variasi 'KARYAWAN'/'Karyawan'.
       let sheet = ss.getSheetByName('KARYAWAN');
@@ -105,6 +118,9 @@
       if (!sheet) throw new Error("Sheet 'KARYAWAN' tidak ditemukan di file autentikasi.");
       return sheet.getDataRange().getValues();
     });
+    nsCachePut_(KARYAWAN_CACHE_KEY, data, KARYAWAN_CACHE_TTL_SECONDS); // skip diam-diam kalau >95KB - memo tetap melindungi request ini
+    karyawanMemo_ = data;
+    return data;
   }
 
   // Lookup hak modul BY NAMA HEADER (bukan huruf kolom hardcode) - sama persis
@@ -204,10 +220,24 @@
   // requireModuleAccess_ (verifikasi email sesi dulu), BUKAN hasModuleAccess_
   // polos yang langsung percaya nik client - data di app ini adalah data pribadi
   // karyawan (tanggal lahir, alamat, kontrak), jadi pakai guard yang lebih kuat.
+  //
+  // FAIL-CLOSED (fix A1, 28 Agu 2026): fallback client-nik DITOLAK untuk endpoint
+  // data karena bisa dipalsukan dari console browser. Identitas wajib dari email
+  // sesi Google. Deploy salah (bukan "Anyone within domain") = aplikasi menolak
+  // semua request data, bukan membocorkan data pribadi 745 karyawan.
   function requireModuleAccess_(requesterNik, moduleName) {
     const resolved = resolveRequestUserProfile_(requesterNik);
     if (!resolved.ok || !resolved.profile || !resolved.profile.nik) {
       return { ok: false, response: nsForbidden_(resolved.message || 'Akses ditolak.') };
+    }
+    if (resolved.authSource !== 'session-email') {
+      return {
+        ok: false,
+        response: nsForbidden_(
+          'Sesi Google tidak terdeteksi di server. Endpoint data wajib identitas sesi Google - ' +
+          'pastikan deploy "Anyone within domain" dan browser sedang login akun Google perusahaan.'
+        )
+      };
     }
     if (hasModuleAccess_(resolved.profile.nik, moduleName)) {
       return { ok: true, profile: resolved.profile, authSource: resolved.authSource };
@@ -404,6 +434,7 @@
     urutanKontrak: ['URUTAN KONTRAK', 'Urutan Kontrak', 'Keterangan Kontrak', 'Kontrak Ke'],
     keteranganKontrak: ['URUTAN KONTRAK', 'Urutan Kontrak', 'Keterangan Kontrak', 'Kontrak Ke'],
     tglAkhirKontrak: ['TANGGAL AKHIR KONTRAK', 'Tgl Akhir Kontrak', 'Tanggal Akhir Kontrak', 'Tgl. Akhir Kontrak'],
+    tglAwalKontrak: ['TANGGAL AWAL KONTRAK', 'Tgl Awal Kontrak', 'Tanggal Awal Kontrak'],
     alamatLengkap: ['ALAMAT LENGKAP', 'Alamat Lengkap', 'Alamat'],
     desa: ['DESA', 'Desa'],
     rt: ['RT', 'Rt'],
@@ -514,6 +545,11 @@
 
   // Terima Date, string, dan angka serial Sheets (hasil paste-values) - pola yang
   // sama dipakai normalizeDateOnly() di WebApp.gs / parseDateValue_() di dt summary.gs.
+  //
+  // Urutan parse PENTING (fix B1, 28 Agu 2026): string angka ber-pemisah WAJIB
+  // di-parse manual dulu dengan konvensi Indonesia (hari-bulan-tahun). new Date()
+  // membaca format US (bulan-hari-tahun) sehingga tanggal dengan hari <= 12
+  // sebelumnya bergeser diam-diam. new Date() hanya fallback terakhir.
   function nsParseDate_(value) {
     if (!value && value !== 0) return null;
     if (Object.prototype.toString.call(value) === '[object Date]') {
@@ -526,8 +562,6 @@
     }
     const s = nsTrim_(value);
     if (!s) return null;
-    let d = new Date(s);
-    if (!isNaN(d.getTime())) return d;
 
     const parts = s.split(/[\s\/\-\.]+/);
     if (parts.length >= 3) {
@@ -545,16 +579,32 @@
         november:10, nov:10,
         december:11, dec:11, desember:11, des:11
       };
-      let day = parseInt(parts[0], 10);
-      let monStr = parts[1].toLowerCase();
-      let year = parseInt(parts[2], 10);
-      let month = months[monStr] !== undefined ? months[monStr] : parseInt(parts[1], 10) - 1;
+      let day, monStr, year;
+      if (/^\d{4}$/.test(parts[0])) {
+        // ISO-style, tahun di depan: 2020-06-05
+        year = parseInt(parts[0], 10);
+        monStr = parts[1].toLowerCase();
+        day = parseInt(parts[2], 10);
+      } else {
+        // Konvensi Indonesia, hari di depan: 05/06/2020 = 5 Juni 2020
+        day = parseInt(parts[0], 10);
+        monStr = parts[1].toLowerCase();
+        year = parseInt(parts[2], 10);
+      }
+      const month = months[monStr] !== undefined ? months[monStr] : parseInt(parts[1], 10) - 1;
       if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
         if (year < 100) year += 2000;
-        d = new Date(year, month, day);
-        if (!isNaN(d.getTime())) return d;
+        const d = new Date(year, month, day);
+        // Verifikasi komponen - menolak rollover senyap (mis. 31 Feb -> 2 Mar).
+        if (!isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month && d.getDate() === day) {
+          return d;
+        }
       }
     }
+
+    // Fallback terakhir untuk bentuk yang tidak dikenali parser manual.
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
     return null;
   }
 
@@ -736,6 +786,7 @@
       const birthDate = nsParseDate_(nsCell_(row, index, 'tanggalLahir'));
       const joinDate = nsParseDate_(nsCell_(row, index, 'tanggalMasuk'));
       const endContract = nsParseDate_(nsCell_(row, index, 'tglAkhirKontrak'));
+      const startContract = nsParseDate_(nsCell_(row, index, 'tglAwalKontrak'));
       const exitDate = nsParseDate_(nsCell_(row, index, 'tanggalNonAktif'));
       const status = nsTrim_(nsCell_(row, index, 'status')).toUpperCase();
       const isActive = status === 'AKTIF';
@@ -771,6 +822,7 @@
         costCenter: nsTrim_(nsCell_(row, index, 'costCenter')),
         group: nsNormalizeSimple_(nsCell_(row, index, 'group')),
         tanggalMasuk: nsToIsoDate_(joinDate),
+        tglAwalKontrak: nsToIsoDate_(startContract),
         masaKerjaBulan: tenure ? tenure.totalMonths : null,
         masaKerjaText: tenure ? (tenure.years + ' Thn ' + tenure.months + ' Bln') : null,
         bucketMasaKerja: tenure ? (tenure.years < 1 ? '< 1 Tahun' : (tenure.years < 3 ? '1-3 Tahun' : (tenure.years < 5 ? '3-5 Tahun' : '> 5 Tahun'))) : NSRECORD_UNKNOWN,
@@ -880,10 +932,11 @@
     }
   }
 
-  function nsCachePut_(key, obj) {
+  function nsCachePut_(key, obj, ttlSeconds) {
     try {
       const raw = JSON.stringify(obj);
-      if (raw.length <= 95000) CacheService.getScriptCache().put(key, raw, NSRECORD_CACHE_TTL_SECONDS);
+      // ttlSeconds opsional (fix C1, 28 Agu 2026) - default tetap TTL lama.
+      if (raw.length <= 95000) CacheService.getScriptCache().put(key, raw, ttlSeconds || NSRECORD_CACHE_TTL_SECONDS);
     } catch (e) {}
   }
 
@@ -1064,7 +1117,9 @@
               bagian: r.bagian, bagianRaw: r.bagianRaw, jabatan: r.jabatan, group: r.group,
               keteranganKontrak: r.keteranganKontrak,
               tanggalMasuk: r.tanggalMasuk,
-              tglAwalKontrak: r.tanggalMasuk,
+              // Fix B3 (28 Agu 2026): pakai kolom TANGGAL AWAL KONTRAK yang asli;
+              // fallback tanggalMasuk hanya kalau kolom itu kosong/tidak ada.
+              tglAwalKontrak: r.tglAwalKontrak || r.tanggalMasuk,
               tglAkhirKontrak: r.tglAkhirKontrak,
               sisaHariKontrak: r.sisaHariKontrak, bucket: r.bucketKontrak,
               bucketTahunKontrak: r.bucketTahunKontrak,
@@ -1110,7 +1165,6 @@
             watchlist: buildWatchlist(all)
           },
           perBucket: nsCountBy_(aktif, 'bucketKontrak'),
-          perKeteranganKontrak: nsCountBy_(aktif, 'keteranganKontrak'),
           perTahunKontrak: nsCountBy_(aktif, 'bucketTahunKontrak'),
           tenureBreakdown: buildContractTenureBreakdown_(aktif),
           watchlist: buildWatchlist(aktif),

@@ -198,6 +198,13 @@ sessionEmail = 'noakses@contoh.com';
 res = JSON.parse(sandbox.getNsHeadcountData('999'));
 check('sesi email menang atas nik client', res.status, 'forbidden');
 
+// ---------- 6.5. GATING: fallback client-nik ditolak (fix A1) ----------
+hr('GATING - sesi kosong: endpoint data menolak nik client yang bisa dipalsukan');
+sessionEmail = '';
+res = JSON.parse(sandbox.getNsHeadcountData('999'));
+check('fallback client-nik ditolak', res.status, 'forbidden');
+check('data null', res.data, 'null');
+
 // ---------- 7. Login ----------
 hr('userLogin');
 sessionEmail = '';
@@ -244,6 +251,25 @@ hr('GATING - getNsManningData ditolak untuk user tanpa hak NS Manning');
 sessionEmail = 'noakses@contoh.com';
 res = JSON.parse(sandbox.getNsManningData('888'));
 check('status', res.status, 'forbidden');
+
+// ---------- 8.5. nsParseDate_ - konvensi Indonesia menang atas format US (fix B1) ----------
+hr('nsParseDate_ - tanggal ambigu');
+const pdA = sandbox.nsParseDate_('05/06/2020');
+check('05/06/2020 = 5 Juni 2020 (bukan 6 Mei)', pdA.getFullYear() + '-' + (pdA.getMonth() + 1) + '-' + pdA.getDate(), '2020-6-5');
+const pdB = sandbox.nsParseDate_('25/12/2020');
+check('25/12/2020 = 25 Des 2020', pdB.getFullYear() + '-' + (pdB.getMonth() + 1) + '-' + pdB.getDate(), '2020-12-25');
+const pdC = sandbox.nsParseDate_('2020-06-05');
+check('ISO tahun di depan tetap benar', pdC.getFullYear() + '-' + (pdC.getMonth() + 1) + '-' + pdC.getDate(), '2020-6-5');
+const pdD = sandbox.nsParseDate_('5 Juni 2020');
+check('nama bulan Indonesia', pdD.getFullYear() + '-' + (pdD.getMonth() + 1) + '-' + pdD.getDate(), '2020-6-5');
+check('31 Feb ditolak, tidak rollover', sandbox.nsParseDate_('31/02/2020'), 'null');
+check('teks acak ditolak', sandbox.nsParseDate_('bukan tanggal'), 'null');
+
+// ---------- 8.6. tglAwalKontrak dari kolom asli (fix B3) ----------
+hr('tglAwalKontrak di watchlist');
+sessionEmail = 'uji@contoh.com';
+res = JSON.parse(sandbox.getNsContractData('999'));
+check('watchlist punya tglAwalKontrak', !!res.data.watchlist[0].tglAwalKontrak, 'true');
 
 // ---------- 9. Property belum diset ----------
 hr('Script Property belum diset - harus error jelas, bukan diam-diam');

@@ -37,7 +37,7 @@ const code = blocks.join('\n');
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 const refs = new Set([...code.matchAll(/\$\('([^']+)'\)/g)].map(m => m[1]));
 // id yang dibuat dinamis lewat innerHTML (canvas chart) - dikecualikan
-const dynamic = new Set(['cDept', 'cGender', 'cBagian', 'cUsia', 'cGroup', 'cRing', 'cBucket', 'cSiklus', 'cTren', 'cRef', 'cKec']);
+const dynamic = new Set(['cDept', 'cGender', 'cBagian', 'cUsia', 'cGroup', 'cRing', 'cBucket', 'cTren', 'cRef', 'cKec']);
 const missing = [...refs].filter(r => !ids.has(r) && !dynamic.has(r));
 ok('semua id yang dirujuk $() ada di markup', missing.length === 0, missing.join(', '));
 

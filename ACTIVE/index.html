@@ -1641,6 +1641,15 @@
     function renderManning(d) {
       RAW_MANNING_DATA = d;
       var k = d.kpi;
+      // Fix B2 (28 Agu 2026): sisi Aktual tidak punya riwayat bulanan (MASTER
+      // KARYAWAN hanya snapshot kondisi terkini), jadi untuk periode lampau
+      // kolom Aktual/Selisih/Fulfillment bersifat indikatif - tandai eksplisit.
+      var noteAktualSnapshot = (d.periodeList.length && d.selectedPeriode.iso !== d.periodeList[0].iso)
+        ? '<div class="warn"><span class="warn-i">&#9888;</span><div>' +
+          '<div class="warn-t">Periode lampau terpilih - sisi Aktual tetap snapshot hari ini</div>' +
+          '<div class="warn-b">MASTER KARYAWAN tidak menyimpan riwayat bulanan, jadi kolom Aktual, Selisih, dan Fulfillment ' +
+          'untuk periode ini bukan kondisi periode itu sesungguhnya.</div></div>'
+        : '';
       $('viewChip').textContent = 'Periode: ' + d.selectedPeriode.label;
 
       var periodeOptions = d.periodeList.map(function (p) {
@@ -1701,7 +1710,7 @@
         : '';
 
       $('viewBody').innerHTML =
-        warnMissingCols(d.warnings) + warnUnmapped +
+        warnMissingCols(d.warnings) + warnDupNik(d.warnings) + warnUnmapped + noteAktualSnapshot +
         '<div class="kpi-grid">' +
         kpi('Total Rencana (Plan)', nf(k.totalPlan), 'periode ' + d.selectedPeriode.label, '#94a3b8') +
         kpi('Total Aktual', nf(k.totalActual), 'karyawan aktif saat ini', '#3b82f6') +
@@ -2074,7 +2083,22 @@
       var d = RAW_CONTRACT_DATA;
       var mode = CURRENT_GLOBAL_SEGMENT;
       var payload = mode === 'nonAktif' ? (d.nonAktifData || d) : (mode === 'all' ? (d.allData || d) : (d.aktifData || d));
-      var k = d.kpi;
+      // KPI bucket mengikuti segmen terpilih (fix B5, 28 Agu 2026): d.kpi dari
+      // server selalu dihitung dari karyawan AKTIF, jadi kartu KPI sebelumnya
+      // tidak konsisten dengan grafik & tabel saat segmen NON AKTIF / SEMUA
+      // dipilih. Hitung dari perBucket payload segmen - bucketKontrak selalu
+      // terisi untuk tiap record, jadi jumlahnya = total record segmen.
+      var bucketCounts = {};
+      (payload.perBucket || d.perBucket || []).forEach(function (b) { bucketCounts[b.label] = b.value; });
+      var totalSegmen = 0;
+      Object.keys(bucketCounts).forEach(function (b) { totalSegmen += bucketCounts[b]; });
+      var k = {
+        lewatJatuhTempo: bucketCounts['Lewat Jatuh Tempo'] || 0,
+        kritis30: bucketCounts['0-30 Hari'] || 0,
+        waspada60: bucketCounts['31-60 Hari'] || 0,
+        pantau90: bucketCounts['61-90 Hari'] || 0,
+        totalSegmen: totalSegmen
+      };
       $('viewChip').textContent = nf(payload.watchlist ? payload.watchlist.length : d.watchlist.length) + ' record - ' + mode.toUpperCase();
 
       var filteredWatchlist = payload.watchlist || d.watchlist;
@@ -2126,7 +2150,7 @@
 
       var lewat = k.lewatJatuhTempo > 0
         ? '<div class="warn crit"><span class="warn-i">&#9888;</span><div>' +
-        '<div class="warn-t">' + nf(k.lewatJatuhTempo) + ' karyawan aktif kontraknya sudah lewat jatuh tempo</div>' +
+        '<div class="warn-t">' + nf(k.lewatJatuhTempo) + ' karyawan kontraknya sudah lewat jatuh tempo (segmen ' + mode.toUpperCase() + ')</div>' +
         '<div class="warn-b">Status di sheet masih AKTIF tapi Tgl Akhir Kontrak sudah terlewat. ' +
         'Perlu diperpanjang atau statusnya diperbarui.</div></div></div>'
         : '';
@@ -2169,7 +2193,7 @@
       }
 
       $('viewBody').innerHTML =
-        warnMissingCols(d.warnings) + lewat +
+        warnMissingCols(d.warnings) + warnDupNik(d.warnings) + lewat +
         '<div class="kpi-grid">' +
         (k.lewatJatuhTempo > 0 ? '<div style="cursor:pointer" onclick="filterContractByBucket(\'Lewat Jatuh Tempo\')">' + kpi('Lewat Jatuh Tempo', nf(k.lewatJatuhTempo), 'sudah terlewat', '#ef4444') + '</div>' : '') +
         '<div style="cursor:pointer" onclick="filterContractByBucket(\'0-30 Hari\')">' + kpi('Reminder 30 Hari', nf(k.kritis30), 'klik untuk filter (30 hr)', '#ef4444') + '</div>' +
@@ -2177,7 +2201,7 @@
         '<div style="cursor:pointer" onclick="filterContractByBucket(\'61-90 Hari\')">' + kpi('Reminder 90 Hari', nf(k.pantau90), 'klik untuk filter (90 hr)', '#3b82f6') + '</div>' +
         '</div>' +
         '<div style="margin-bottom:20px;">' +
-        card('Sebaran Tahun Kontrak (Masa Kerja)', nf(k.totalAktif) + ' karyawan - segmen ' + mode.toUpperCase() + ' - klik batang diagram untuk filter tabel & tampilkan breakdown', canvas('cTahunKontrak')) +
+        card('Sebaran Tahun Kontrak (Masa Kerja)', nf(k.totalSegmen) + ' karyawan - segmen ' + mode.toUpperCase() + ' - klik batang diagram untuk filter tabel & tampilkan breakdown', canvas('cTahunKontrak')) +
         '</div>' +
         breakdownHtml +
         card('Watchlist - kontrak habis dalam 90 hari ke depan',
@@ -2241,18 +2265,6 @@
       return rows.slice().sort(function (a, b) {
         var ia = order.indexOf(a.label), ib = order.indexOf(b.label);
         return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-      });
-    }
-
-    // "Kontrak ke-10" harus di kanan "Kontrak ke-9", jadi urutkan by angka -
-    // localeCompare biasa akan menaruh ke-10 setelah ke-1.
-    function sortKontrak(rows) {
-      return rows.slice().sort(function (a, b) {
-        var na = parseInt(String(a.label).replace(/\D+/g, ''), 10);
-        var nb = parseInt(String(b.label).replace(/\D+/g, ''), 10);
-        if (isNaN(na)) return 1;
-        if (isNaN(nb)) return -1;
-        return na - nb;
       });
     }
 
@@ -2329,7 +2341,7 @@
       }
 
       $('viewBody').innerHTML =
-        warnMissingCols(d.warnings) + deadWarn +
+        warnMissingCols(d.warnings) + warnDupNik(d.warnings) + deadWarn +
         '<div class="kpi-grid">' +
         kpi('Total Direkrut', nf(k.total), 'seluruh riwayat') +
         kpi('Masih Aktif', nf(k.totalAktif), k.total ? 'retensi ' + (Math.round(k.totalAktif / k.total * 1000) / 10).toString().replace('.', ',') + '%' : '', '#10b981') +
