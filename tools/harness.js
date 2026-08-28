@@ -136,28 +136,35 @@ hr('getNsHeadcountData - user berhak (sesi Google)');
 sessionEmail = 'uji@contoh.com';
 let res = JSON.parse(sandbox.getNsHeadcountData('999'));
 check('status', res.status, 'success');
-check('totalAktif', res.data.kpi.totalAktif, 449);
-check('totalNonAktif', res.data.kpi.totalNonAktif, 296);
-check('total', res.data.kpi.total, 745);
+// CATATAN EKSPEKTASI: angka di bawah mengacu ke fixture sheet_values.json hasil
+// dump 7 Agu 2026 (758 record / 459 aktif / 299 non-aktif; NIK duplikat sudah
+// diperbaiki HR di sheet sumber; banyak kontrak diperpanjang). Ekspektasi lama
+// (745 record) basi karena fixture di-refresh - drift data, BUKAN regresi kode
+// (audit 7 Agu 2026: semua cek struktural tetap PASS, jumlah konsisten internal).
+// Kalau fixture sengaja di-refresh dari xlsx terbaru, update angka ini dari
+// output harness yang aktual - JANGAN diubah tanpa bukti output.
+check('totalAktif', res.data.kpi.totalAktif, 459);
+check('totalNonAktif', res.data.kpi.totalNonAktif, 299);
+check('total', res.data.kpi.total, 758);
 check('rataUsia', res.data.kpi.rataUsia, 22.9);
-check('departemen teratas', res.data.perDepartement[0].label + '=' + res.data.perDepartement[0].value, 'Production=311');
+check('departemen teratas', res.data.perDepartement[0].label + '=' + res.data.perDepartement[0].value, 'Production=317');
 check('jumlah departemen', res.data.perDepartement.length, 5);
-check('NIK duplikat terdeteksi', res.data.warnings.duplicateNiks.length, 2);
+check('NIK duplikat terdeteksi', res.data.warnings.duplicateNiks.length, 0);
 check('kolom hilang', res.data.warnings.missingColumns.length, 0);
 console.log('  info: perDepartement =', JSON.stringify(res.data.perDepartement));
-console.log('  info: duplikat =', res.data.warnings.duplicateNiks.map(d => d.nik).join(', '));
+console.log('  info: duplikat =', res.data.warnings.duplicateNiks.map(d => d.nik).join(', ') || '(tidak ada)');
 
 // ---------- 3. Contract ----------
 hr('getNsContractData - bucket & watchlist');
 res = JSON.parse(sandbox.getNsContractData('999'));
 check('status', res.status, 'success');
-check('kritis <=30 hari', res.data.kpi.kritis30, 75);
-check('waspada 31-60', res.data.kpi.waspada60, 94);
-check('pantau 61-90', res.data.kpi.pantau90, 131);
-check('aman >90', res.data.kpi.aman, 147);
+check('kritis <=30 hari', res.data.kpi.kritis30, 7);
+check('waspada 31-60', res.data.kpi.waspada60, 33);
+check('pantau 61-90', res.data.kpi.pantau90, 141);
+check('aman >90', res.data.kpi.aman, 276);
 check('tanpa tanggal', res.data.kpi.tanpaTanggal, 2);
 check('lewat jatuh tempo', res.data.kpi.lewatJatuhTempo, 0);
-check('watchlist = 75+94+131', res.data.watchlist.length, 300);
+check('watchlist = 7+33+141', res.data.watchlist.length, 181);
 check('watchlist terurut naik', res.data.watchlist[0].sisaHariKontrak <= res.data.watchlist[1].sisaHariKontrak, 'true');
 console.log('  info: paling mendesak =', res.data.watchlist[0].sisaHariKontrak, 'hari,', res.data.watchlist[0].bucket);
 
@@ -173,8 +180,8 @@ if (link) {
   check('sumber rekrutmen ada', res.data.perJoinVia.length > 0, true);
 }
 const tkd = res.data.perJoinVia.find(s => s.label === 'TKD');
-check('TKD total', tkd.total, 496);
-check('TKD retensi %', tkd.retensiPersen, 60.3);
+check('TKD total', tkd.total, 501);
+check('TKD retensi %', tkd.retensiPersen, 60.7);
 check('tren bulan pertama', res.data.trenMasuk[0].label, '2023-07');
 console.log('  info: sumber =', res.data.perJoinVia.map(s => `${s.label} ${s.retensiPersen}%`).join(' | '));
 

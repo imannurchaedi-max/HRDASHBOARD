@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **0. HR DASHBAORD** (294 symbols, 565 relationships, 25 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **0. HR DASHBAORD**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -42,3 +42,27 @@ This project is indexed by GitNexus as **0. HR DASHBAORD** (294 symbols, 565 rel
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+<!-- project-workflow:start -->
+# Workflow Project (terverifikasi 28 Agu 2026)
+
+Repo ini SUDAH git (branch `main`) DAN ter-index GitNexus. Selalu dahulukan keduanya sebelum mengubah kode.
+
+## Sebelum mengedit simbol apa pun
+- `npx gitnexus impact <namaSimbol> -d upstream -r "0. HR DASHBAORD"` — wajib; laporkan blast radius ke user. Contoh: `nsBuildRecords_` = HIGH (5 caller: 4 endpoint + selfTest).
+- Jangan pakai `node .gitnexus/run.cjs` untuk perintah yang butuh `-r`: wrapper itu menggabungkan argumen lewat shell, sehingga nama repo ber-spasi terpecah. Pakai `npx gitnexus ...` dengan tanda kutip.
+
+## Setelah mengedit ACTIVE/ atau documentation/
+- Jalankan `powershell -File sync-graphify.ps1` — mirror `.gs`→`graphify-input/active/*.js`, regenerasi fixture, harness + check_html, lalu re-index GitNexus. Tanpa ini, hasil query/impact membaca kode lama.
+- Test manual: `node tools/harness.js` dan `node tools/check_html.js` — keduanya harus hijau sebelum deploy/commit.
+- Refresh fixture dari xlsx: `python tools/dump_sheet.py` (path relatif ke repo, 35 kolom A:AI).
+
+## Sebelum commit
+- `npx gitnexus detect-changes -r "0. HR DASHBAORD"` — verifikasi hanya simbol yang diharapkan yang berubah. Compare ke baseline: `--scope compare -b main`.
+- `git status` — pastikan tidak ada file PII (`REF/`, `tools/sheet_values.json`) ter-stage; keduanya di-gitignore permanen.
+
+## Catatan
+- Blok di antara marker `gitnexus:start/end` di file ini ditulis ulang otomatis oleh `analyze` — jangan edit di dalamnya; tambahan project taruh di luar marker.
+- `.gitnexus/`, `graphify-out/cache/`, `node_modules/` tidak di-commit (regenerable).
+- Deploy ke GAS tetap manual: paste 3 file → New deployment → paste URL `/exec` ke `CONFIG!A2` (lihat `documentation/ns_record_architecture.md` §6).
+<!-- project-workflow:end -->

@@ -247,7 +247,7 @@ Lapisan auth dan endpoint terduplikasi secara independen sehingga aplikasi dapat
 
 ## 8. Testing
 
-Diuji menggunakan harness Node dan validator HTML (`node tools/check_html.js` dan `node tools/harness.js`).
+Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `node tools/check_html.js`). Fixture `tools/sheet_values.json` di-regenerasi dari `REF/EMPLOYEE DATA.xlsx` via `python tools/dump_sheet.py` (path relatif, 35 kolom A:AI). Pipeline lengkap (mirror `.gs`→`.js` + fixture + kedua test + re-index GitNexus): `powershell -File sync-graphify.ps1`. Impact analysis & verifikasi scope perubahan memakai GitNexus CLI — lihat bagian "Workflow Project" di `AGENTS.md`.
 
 ---
 
@@ -264,11 +264,17 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/check_html.js` da
 - **Drill-down profil per orang** — klik baris tabel untuk modal detail profil karyawan.
 - **Tren "per Cost Center per bulan" di panel Manning** — saat ini `trend` cuma total rencana gabungan semua Cost Center per bulan (line chart tunggal). Belum ada breakdown per-Cost-Center per-bulan (mis. multi-line, satu garis per Cost Center) walau data mentahnya (`nsBuildManningRecords_`) sudah punya kedua dimensi sekaligus. Hanya berlaku untuk sisi rencana — sisi aktual tidak punya riwayat bulanan sama sekali (MASTER KARYAWAN cuma snapshot kondisi sekarang).
 - **Bug `tglAwalKontrak` di Contract Watchlist** — diisi dari `tanggalMasuk` (tanggal join), bukan dari kolom `TANGGAL AWAL KONTRAK` yang sebenarnya ada di sheet tapi tidak pernah dibaca. Berpotensi salah untuk karyawan kontrak ke-N (N>1). Belum diperbaiki, perlu keputusan apakah ini disengaja atau memang bug.
-- **Drift regresi test pre-existing** — 5 assertion di `tools/harness.js` (`totalAktif`, `total`, `departemen teratas`, `NIK duplikat`, bucket `aman >90 hari`) sudah tidak cocok dengan `tools/sheet_values.json` saat ini (beda konsisten ~4 baris data). Ditemukan 6 Agu 2026, belum diinvestigasi akar penyebabnya (data fixture di-refresh vs regresi kode).
 
 ---
 
 ## 11. Changelog
+
+### 28 Agu 2026 — Git repo + GitNexus live + perbaikan tooling & harness
+- **Git repo diinisialisasi** (branch `main`, baseline commit) — `detect-changes` GitNexus sekarang berfungsi. `.gitignore` mengecualikan `REF/` & `tools/sheet_values.json` (PII, audit A3), `.gitnexus/`, `graphify-out/cache/`, `node_modules/`.
+- **GitNexus analyze dijalankan**: `.gitnexus/run.cjs` + skill project `.claude/skills/gitnexus/` terbuat; index 293 simbol / 564 edges / 25 flows. Perintah dengan `-r` wajib via `npx gitnexus` (bukan `run.cjs`) karena nama repo ber-spasi terpecah oleh wrapper shell — dicatat di `AGENTS.md` bagian "Workflow Project".
+- **`tools/dump_sheet.py` diperbaiki**: path absolut basi (folder lama `0. EMPLOYEE NS RECORD`) → relatif ke repo; ekspor 32 → 35 kolom (A:AI) sehingga `TANGGAL EFEKTIF NON AKTIF`, `ALASAN KELUAR`, `PENDIDIKAN` ikut masuk fixture. `openpyxl` ditambahkan ke `requirements.txt` (file sekalian dikonversi UTF-16 → UTF-8).
+- **Drift harness (eks-§10) teratasi**: fixture di-regenerasi dari xlsx aktual (758 record / 459 aktif / 299 non-aktif). Investigasi membuktikan 12 assertion gagal murni drift data — sheet sumber berubah (+13 record, 2 NIK duplikat sudah diperbaiki HR di sumber, banyak kontrak diperpanjang → bucket `aman >90` naik 147→276) — BUKAN regresi kode (semua cek struktural/gating/login/manning tetap PASS, agregat konsisten internal). Ekspektasi di-update dengan komentar anti-ubah-tanpa-bukti-output. Harness & check_html hijau.
+- **`package.json` name** diperbarui: `0.-employee-ns-record` → `hr-dashboard`.
 
 ### 7 Agu 2026 — Modul Manning Distribution live & terverifikasi + klarifikasi arsitektur spreadsheet
 - **Modul Manning Distribution resmi berfungsi di produksi.** Root cause link sidebar tidak muncul (dibahas panjang 6-7 Agu): kolom permission `NS Manning` belum ada di sheet `KARYAWAN`. Setelah kolom ditambahkan (header `NS Manning`, nilai `1` untuk NIK berhak), modul langsung tampil tanpa perlu deploy ulang apa pun (murni perubahan data, bukan kode).
