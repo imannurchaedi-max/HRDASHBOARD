@@ -1,0 +1,17 @@
+# Dependencies & build
+node_modules/
+
+# GitNexus / graphify index (regenerable via sync-graphify.ps1)
+.gitnexus/
+graphify-out/cache/
+
+# PII - data pribadi karyawan, JANGAN pernah masuk git (audit A3)
+REF/
+tools/sheet_values.json
+
+# Windows / SynologyDrive noise
+Thumbs.db
+desktop.ini
+@eaDir/
+*.tmp
+*.log
