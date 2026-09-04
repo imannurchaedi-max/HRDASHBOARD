@@ -1281,6 +1281,15 @@
       }
 
       var hasPercent = rows.some(function (r) { return r.percent > 0; });
+      // On horizontal, non-stacked charts, move very short-bar values outside
+      // the bar. Larger values stay centred in a high-contrast value pill.
+      var isShortHorizontalBar = function (ctx) {
+        var value = Number(ctx.dataset.data[ctx.dataIndex]) || 0;
+        return horizontal && !isStacked && value > 0 && value < 20;
+      };
+      var isLongHorizontalBar = function (ctx) {
+        return horizontal && !isStacked && !isShortHorizontalBar(ctx);
+      };
       if (hasPercent && !horizontal) {
         datasets.push({
           label: '% Total Populasi',
@@ -1370,32 +1379,44 @@
             },
             datalabels: {
               anchor: function (ctx) {
-                return ctx.dataset.type === 'line' ? 'center' : (horizontal ? 'right' : 'end');
+                if (ctx.dataset.type === 'line') return 'center';
+                if (isLongHorizontalBar(ctx)) return 'center';
+                return horizontal ? 'end' : 'end';
               },
               align: function (ctx) {
-                return ctx.dataset.type === 'line' ? 'top' : (horizontal ? 'right' : 'top');
+                if (ctx.dataset.type === 'line') return 'top';
+                if (isLongHorizontalBar(ctx)) return 'center';
+                return horizontal ? 'right' : 'top';
               },
               offset: function (ctx) {
-                return ctx.dataset.type === 'line' ? (hasPercent ? 18 : 6) : 2;
+                if (ctx.dataset.type === 'line') return hasPercent ? 18 : 6;
+                return isShortHorizontalBar(ctx) ? 6 : 2;
               },
               backgroundColor: function (ctx) {
-                return ctx.dataset.type === 'line' ? 'rgba(254, 243, 199, 0.95)' : null;
+                if (ctx.dataset.type === 'line') return 'rgba(254, 243, 199, 0.95)';
+                if (isLongHorizontalBar(ctx)) return 'rgba(15, 23, 42, 0.24)';
+                if (isShortHorizontalBar(ctx)) return 'rgba(255, 255, 255, 0.96)';
+                return null;
               },
               borderColor: function (ctx) {
-                return ctx.dataset.type === 'line' ? '#fcd34d' : null;
+                if (ctx.dataset.type === 'line') return '#fcd34d';
+                return isShortHorizontalBar(ctx) ? 'rgba(15, 23, 42, 0.18)' : null;
               },
               borderWidth: function (ctx) {
-                return ctx.dataset.type === 'line' ? 1 : 0;
+                return (ctx.dataset.type === 'line' || isShortHorizontalBar(ctx)) ? 1 : 0;
               },
-              borderRadius: 12,
+              borderRadius: 10,
               padding: function (ctx) {
-                return ctx.dataset.type === 'line' ? { top: 2, bottom: 2, left: 7, right: 7 } : 0;
+                if (ctx.dataset.type === 'line') return { top: 2, bottom: 2, left: 7, right: 7 };
+                if (horizontal && !isStacked) return { top: 3, bottom: 3, left: 8, right: 8 };
+                return 0;
               },
               color: function (ctx) {
-                return ctx.dataset.type === 'line' ? '#92400e' : '#1e293b';
+                if (ctx.dataset.type === 'line') return '#92400e';
+                return isLongHorizontalBar(ctx) ? '#ffffff' : '#1e293b';
               },
               font: function (ctx) {
-                return ctx.dataset.type === 'line' ? { size: 9.5, weight: 800 } : { size: 10, weight: 700 };
+                return ctx.dataset.type === 'line' ? { size: 11, weight: 800 } : { size: 11, weight: 800 };
               },
               formatter: function (v, ctx) {
                 if (ctx.dataset.type === 'line') return v + '%';
@@ -1413,7 +1434,7 @@
             }
           },
           scales: scalesConfig,
-          layout: { padding: { right: horizontal ? 30 : (hasPercent ? 10 : 0), top: horizontal ? 0 : 28 } }
+          layout: { padding: { right: horizontal ? 58 : (hasPercent ? 10 : 0), top: horizontal ? 0 : 28 } }
         },
         plugins: [ChartDataLabels]
       }));
