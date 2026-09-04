@@ -27,13 +27,13 @@ function makeMasterFixtureRow(fields) {
 nsValues.push(makeMasterFixtureRow({
   NIK: 'TIMELINE-EXIT', Nama: 'Fixture Keluar', 'JENIS KELAMIN': 'L',
   DEPARTEMEN: 'Production', SECTION: 'Fixture', JABATAN: 'Operator', 'COST CENTER': '999001',
-  'TANGGAL MASUK': new Date('2025-10-01'), STATUS: 'NON AKTIF',
-  'TANGGAL EFEKTIF NON AKTIF': new Date('2025-12-01')
+  'TANGGAL MASUK': new Date('2026-05-01'), STATUS: 'NON AKTIF',
+  'TANGGAL EFEKTIF NON AKTIF': new Date('2026-07-01')
 }));
 nsValues.push(makeMasterFixtureRow({
   NIK: 'TIMELINE-JOIN', Nama: 'Fixture Masuk', 'JENIS KELAMIN': 'L',
   DEPARTEMEN: 'Production', SECTION: 'Fixture', JABATAN: 'Operator', 'COST CENTER': '999002',
-  'TANGGAL MASUK': new Date('2025-12-01'), STATUS: 'AKTIF'
+  'TANGGAL MASUK': new Date('2026-07-01'), STATUS: 'AKTIF'
 }));
 
 // ---- sheet KARYAWAN palsu: header A-G + 4 kolom modul, 1 user uji ----
@@ -52,31 +52,63 @@ const karyawanValues = [
 // tidak bikin crash - hanya masuk bucket NSRECORD_UNKNOWN + warning.
 const manningValues = [
   ['Type', 'Periode', 'Comp', 'Comp Code', 'Cost Center', 'Head count', 'Nama Cost Center'],
-  ['IDL', '11.2025', 'DACO', 'A028', '121101', 23, 'Engineering DAM'],
-  ['DL', 112025, 'DACO', 'A028', '111102', 100, 'Diapers Production DAM'],
-  ['IDL', '11.2025', 'DACO', 'A028', '121103', 14, 'WRH RAW MAT & PCK'],
-  ['IDL', '12.2025', 'DACO', 'A028', '121101', 25, 'Engineering DAM'],
-  ['DL', 122025, 'DACO', 'A028', '111102', 105, 'Diapers Production DAM'],
-  ['STAFF', '12.2025', 'DACO', 'A028', '121103', 15, 'WRH RAW MAT & PCK'],
-  ['STAFF', '11.2025', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
-  ['STAFF', '12.2025', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
-  ['STAFF', '11.2025', 'DACO', 'A028', '999002', 0, 'Fixture Masuk'],
-  ['STAFF', '12.2025', 'DACO', 'A028', '999002', 0, 'Fixture Masuk']
+  ['IDL', '06.2026', 'DACO', 'A028', '121101', 23, 'Engineering DAM'],
+  ['DL', 62026, 'DACO', 'A028', '111102', 100, 'Diapers Production DAM'],
+  ['IDL', '06.2026', 'DACO', 'A028', '121103', 14, 'WRH RAW MAT & PCK'],
+  ['IDL', '07.2026', 'DACO', 'A028', '121101', 25, 'Engineering DAM'],
+  ['DL', 72026, 'DACO', 'A028', '111102', 105, 'Diapers Production DAM'],
+  ['STAFF', '07.2026', 'DACO', 'A028', '121103', 15, 'WRH RAW MAT & PCK'],
+  ['STAFF', '06.2026', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
+  ['STAFF', '07.2026', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
+  ['STAFF', '06.2026', 'DACO', 'A028', '999002', 0, 'Fixture Masuk'],
+  ['STAFF', '07.2026', 'DACO', 'A028', '999002', 0, 'Fixture Masuk']
 ];
 
 const logs = [];
 const cacheStore = {};
+const scriptProperties = { NSRECORD_SPREADSHEET_ID: 'FAKE_NS_ID' };
+const scheduledTriggers = [];
 
 function makeSheet(name, values) {
   return {
     getName: () => name,
-    getDataRange: () => ({ getValues: () => values }),
-    getLastRow: () => values.length
+    getDataRange: () => ({ getValues: () => values.map(row => row.slice()) }),
+    getLastRow: () => values.length,
+    getRange: (row, col, numRows, numCols) => ({
+      getValues: () => Array.from({ length: numRows }, (_, r) =>
+        Array.from({ length: numCols }, (_, c) => (values[row - 1 + r] || [])[col - 1 + c] || '')
+      ),
+      setValues: (newValues) => {
+        newValues.forEach((newRow, r) => {
+          const targetRow = row - 1 + r;
+          while (values.length <= targetRow) values.push([]);
+          newRow.forEach((value, c) => { values[targetRow][col - 1 + c] = value; });
+        });
+      },
+      clearContent: () => {
+        for (let r = 0; r < numRows; r++) {
+          const targetRow = row - 1 + r;
+          if (!values[targetRow]) continue;
+          for (let c = 0; c < numCols; c++) values[targetRow][col - 1 + c] = '';
+        }
+      }
+    }),
+    setFrozenRows: () => {},
+    hideSheet: () => {},
+    autoResizeColumns: () => {}
   };
 }
 const nsSheet = makeSheet('MASTER KARYAWAN', nsValues);
 const kSheet = makeSheet('KARYAWAN', karyawanValues);
 const manningSheet = makeSheet('MANNING DISTRIBUTION', manningValues);
+const nsSheets = [nsSheet, manningSheet];
+const nsSheetsByName = { 'MASTER KARYAWAN': nsSheet, 'MANNING DISTRIBUTION': manningSheet };
+function insertNsSheet(name) {
+  const sheet = makeSheet(name, []);
+  nsSheets.push(sheet);
+  nsSheetsByName[name] = sheet;
+  return sheet;
+}
 
 let sessionEmail = '';  // dikendalikan tiap skenario
 const RealDate = Date;
@@ -104,16 +136,19 @@ const sandbox = {
   Date: makeFrozenDate(REGRESSION_TODAY_ISO), JSON, Math, Object, Array, String, Number, isNaN, isFinite, parseInt, parseFloat,
   PropertiesService: {
     getScriptProperties: () => ({
-      getProperty: (k) => (k === 'NSRECORD_SPREADSHEET_ID' ? 'FAKE_NS_ID' : null)
+      getProperty: (k) => scriptProperties[k] || null,
+      setProperty: (k, v) => { scriptProperties[k] = v; }
     })
   },
   SpreadsheetApp: {
     openById: (id) => ({
       getSheetByName: (n) => (id === 'FAKE_NS_ID'
-        ? (n === 'MASTER KARYAWAN' ? nsSheet : (n === 'MANNING DISTRIBUTION' ? manningSheet : null))
+        ? (nsSheetsByName[n] || null)
         : (n === 'KARYAWAN' ? kSheet : null)),
-      getSheets: () => (id === 'FAKE_NS_ID' ? [nsSheet, manningSheet] : [kSheet])
-    })
+      getSheets: () => (id === 'FAKE_NS_ID' ? nsSheets : [kSheet]),
+      insertSheet: (n) => (id === 'FAKE_NS_ID' ? insertNsSheet(n) : null)
+    }),
+    flush: () => {}
   },
   CacheService: {
     getScriptCache: () => ({
@@ -131,7 +166,30 @@ const sandbox = {
   },
   Session: {
     getScriptTimeZone: () => 'Asia/Jakarta',
-    getActiveUser: () => ({ getEmail: () => sessionEmail })
+    getActiveUser: () => ({ getEmail: () => sessionEmail }),
+    getEffectiveUser: () => ({ getEmail: () => 'uji@contoh.com' })
+  },
+  LockService: {
+    getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} })
+  },
+  ScriptApp: {
+    getProjectTriggers: () => scheduledTriggers.slice(),
+    deleteTrigger: (trigger) => {
+      const index = scheduledTriggers.indexOf(trigger);
+      if (index >= 0) scheduledTriggers.splice(index, 1);
+    },
+    newTrigger: (handler) => {
+      const trigger = { getHandlerFunction: () => handler };
+      const builder = {
+        timeBased: () => builder,
+        atHour: () => builder,
+        nearMinute: () => builder,
+        everyDays: () => builder,
+        inTimezone: () => builder,
+        create: () => { scheduledTriggers.push(trigger); return trigger; }
+      };
+      return builder;
+    }
   },
   HtmlService: {
     createHtmlOutputFromFile: () => ({
@@ -245,43 +303,45 @@ hr('getNsManningData - rencana vs aktual, pilih periode, gating');
 sessionEmail = 'uji@contoh.com';
 res = JSON.parse(sandbox.getNsManningData('999'));
 check('status', res.status, 'success');
-check('default pilih periode terbaru', res.data.selectedPeriode.label, 'Des 2025');
-check('jumlah periode terdeteksi', res.data.periodeList.length, 2);
-check('periodeList terurut turun', res.data.periodeList[0].iso, '2025-12');
-check('total rencana periode terbaru (25+105+15)', res.data.kpi.totalPlan, 145);
+check('default pilih bulan berjalan (NOW)', res.data.selectedPeriode.label, 'Jul 2026');
+check('periode YTD Jan s/d Jul terdeteksi', res.data.periodeList.length, 7);
+check('periodeList mulai Januari tahun berjalan', res.data.periodeList[0].iso, '2026-01');
+check('periodeList berakhir bulan berjalan', res.data.periodeList[6].iso, '2026-07');
+check('total rencana bulan berjalan (25+105+15)', res.data.kpi.totalPlan, 145);
 const ccEng = res.data.perCostCenter.find(r => r.costCenter === '121101');
-check('rencana Cost Center 121101 (Des 2025)', ccEng.planTotal, 25);
+check('rencana Cost Center 121101 (Jul 2026)', ccEng.planTotal, 25);
 check('nama Cost Center terbaca', ccEng.namaCostCenter, 'Engineering DAM');
 
-check('perTypeCostCenter jumlah baris (Des 2025)', res.data.perTypeCostCenter.length, 5);
+check('perTypeCostCenter jumlah baris (Jul 2026)', res.data.perTypeCostCenter.length, 5);
 check('perTypeCostCenter urutan #1 = DL', res.data.perTypeCostCenter[0].type, 'DL');
 check('perTypeCostCenter urutan #2 = IDL', res.data.perTypeCostCenter[1].type, 'IDL');
 check('perTypeCostCenter urutan #3 = STAFF', res.data.perTypeCostCenter[2].type, 'STAFF');
 check('perTypeCostCenter DL = Diapers Production DAM 105', res.data.perTypeCostCenter[0].namaCostCenter + ' ' + res.data.perTypeCostCenter[0].headCount, 'Diapers Production DAM 105');
 
-check('trendByType jumlah bulan', res.data.trendByType.length, 2);
-check('trendByType Nov 2025 DL', res.data.trendByType[0].byType.DL, 100);
-check('trendByType Nov 2025 IDL (23+14)', res.data.trendByType[0].byType.IDL, 37);
-check('trendByType Nov 2025 STAFF (baris rencana nol)', res.data.trendByType[0].byType.STAFF, 0);
-check('trendByType Des 2025 DL', res.data.trendByType[1].byType.DL, 105);
-check('trendByType Des 2025 IDL', res.data.trendByType[1].byType.IDL, 25);
-check('trendByType Des 2025 STAFF', res.data.trendByType[1].byType.STAFF, 15);
-check('aktual Des mengecualikan yang efektif keluar 1 Des', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 0);
-check('aktual Des memasukkan yang masuk 1 Des', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 1);
-check('as-of aktual Des adalah akhir bulan', res.data.actualAsOf.iso, '2025-12-31');
+check('trendByType jumlah bulan YTD', res.data.trendByType.length, 7);
+check('trendByType Jan 2026 tanpa plan = 0', res.data.trendByType[0].byType.DL, undefined);
+check('trendByType Jun 2026 DL', res.data.trendByType[5].byType.DL, 100);
+check('trendByType Jun 2026 IDL (23+14)', res.data.trendByType[5].byType.IDL, 37);
+check('trendByType Jul 2026 DL', res.data.trendByType[6].byType.DL, 105);
+check('trendByType Jul 2026 IDL', res.data.trendByType[6].byType.IDL, 25);
+check('trendByType Jul 2026 STAFF', res.data.trendByType[6].byType.STAFF, 15);
+check('aktual Jul mengecualikan yang efektif keluar 1 Jul', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 0);
+check('aktual Jul memasukkan yang masuk 1 Jul', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 1);
+check('as-of aktual bulan berjalan adalah hari ini', res.data.actualAsOf.iso, '2026-07-16');
+check('bulan berjalan ditandai eksplisit', res.data.actualAsOf.isCurrentPeriod, true);
 
-res = JSON.parse(sandbox.getNsManningData('999', '2025-11'));
-check('pilih periode eksplisit (Nov 2025)', res.data.selectedPeriode.label, 'Nov 2025');
-check('total rencana Nov 2025 (23+100+14)', res.data.kpi.totalPlan, 137);
-check('aktual Nov memasukkan yang keluar Des', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 1);
-check('aktual Nov mengecualikan yang baru masuk Des', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 0);
+res = JSON.parse(sandbox.getNsManningData('999', '2026-06'));
+check('pilih periode eksplisit (Jun 2026)', res.data.selectedPeriode.label, 'Jun 2026');
+check('total rencana Jun 2026 (23+100+14)', res.data.kpi.totalPlan, 137);
+check('aktual Jun memasukkan yang keluar Jul', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 1);
+check('aktual Jun mengecualikan yang baru masuk Jul', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 0);
+check('as-of historis adalah akhir bulan', res.data.actualAsOf.iso, '2026-06-30');
 
-// Perubahan live pada MANNING DISTRIBUTION harus terbaca pada request berikutnya:
-// tidak boleh tertahan CacheService, karena periodeList dan Pareto memakai respons ini.
-manningValues.push(['DL', '01.2026', 'DACO', 'A028', '999003', 7, 'Fixture Periode Baru']);
+// Plan masa depan tidak boleh menggeser default: dropdown selalu YTD terhadap NOW.
+manningValues.push(['DL', '08.2026', 'DACO', 'A028', '999003', 7, 'Fixture Periode Depan']);
 res = JSON.parse(sandbox.getNsManningData('999'));
-check('dropdown membaca periode baru tanpa cache', res.data.selectedPeriode.iso, '2026-01');
-check('Pareto membaca rencana periode baru tanpa cache', res.data.perTypeCostCenter.find(r => r.costCenter === '999003').headCount, 7);
+check('dropdown tetap bulan berjalan saat ada plan masa depan', res.data.selectedPeriode.iso, '2026-07');
+check('dropdown YTD tidak memasukkan plan masa depan', res.data.periodeList.some(r => r.iso === '2026-08'), false);
 
 console.log('  info: cost center tanpa rencana =', res.data.warnings.costCenterTanpaRencana.join(', ') || '(tidak ada)');
 
@@ -289,6 +349,18 @@ hr('GATING - getNsManningData ditolak untuk user tanpa hak NS Manning');
 sessionEmail = 'noakses@contoh.com';
 res = JSON.parse(sandbox.getNsManningData('888'));
 check('status', res.status, 'forbidden');
+
+hr('Prepared dashboard - scheduler 01.00 dan tab helper');
+sessionEmail = '';
+const preparation = sandbox.nsInstallDailyDashboardRefresh_();
+check('scheduler membuat trigger harian', scheduledTriggers.length, 1);
+check('scheduler menyiapkan 3 panel + 7 periode Manning', preparation.cachedPayloads, 10);
+check('scheduler membuat tab cache tersembunyi', !!nsSheetsByName._NS_DASHBOARD_CACHE, true);
+check('scheduler membuat tab Headcount Monthly', !!nsSheetsByName['NS HEADCOUNT MONTHLY'], true);
+check('Headcount Monthly berisi YTD Cost Center', preparation.monthlyRows > 0, true);
+sessionEmail = 'uji@contoh.com';
+res = JSON.parse(sandbox.getNsManningData('999'));
+check('Manning membaca payload prepared hari ini', res.data.selectedPeriode.iso, '2026-07');
 
 // ---------- 8.5. nsParseDate_ - konvensi Indonesia menang atas format US (fix B1) ----------
 hr('nsParseDate_ - tanggal ambigu');

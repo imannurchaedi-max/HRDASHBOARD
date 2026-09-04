@@ -45,6 +45,16 @@
   const NSRECORD_CACHE_TTL_SECONDS = 600;
   const NSRECORD_UNKNOWN = '(Tidak Diketahui)';
 
+  // Prepared dashboard: data berat disiapkan sekali setiap dini hari, bukan
+  // dihitung ulang dari MASTER KARYAWAN ketika setiap pengguna membuka panel.
+  // Cache sheet disembunyikan; tab bulanan tetap terlihat sebagai audit trail.
+  const NS_DASHBOARD_CACHE_SHEET_NAME = '_NS_DASHBOARD_CACHE';
+  const NS_HEADCOUNT_MONTHLY_SHEET_NAME = 'NS HEADCOUNT MONTHLY';
+  const NS_DASHBOARD_REFRESH_NIK_PROPERTY = 'NS_DASHBOARD_REFRESH_NIK';
+  const NS_DASHBOARD_REFRESH_HANDLER = 'nsRefreshDashboardCache_';
+  const NS_DASHBOARD_CACHE_CHUNK_SIZE = 45000;
+  let nsScheduledPreparation_ = false;
+
   // Nama modul ini HARUS sama persis (case-insensitive) dengan header kolom di
   // sheet KARYAWAN dan atribut data-module di index.html - lookup by header name,
   // bukan huruf kolom, jadi aman kalau kolom baru disisipkan di tengah.
@@ -226,6 +236,18 @@
   // sesi Google. Deploy salah (bukan "Anyone within domain") = aplikasi menolak
   // semua request data, bukan membocorkan data pribadi 745 karyawan.
   function requireModuleAccess_(requesterNik, moduleName) {
+    // Hanya diaktifkan sementara di dalam nsRefreshDashboardCache_ (fungsi
+    // private yang dijalankan trigger). Browser tidak punya jalur untuk mengubah
+    // flag server ini; NIK admin tersimpan di Script Properties dan tetap dicek
+    // terhadap kolom hak modul KARYAWAN.
+    if (nsScheduledPreparation_) {
+      const systemNik = nsTrim_(PropertiesService.getScriptProperties().getProperty(NS_DASHBOARD_REFRESH_NIK_PROPERTY));
+      const systemProfile = getKaryawanProfileByNik_(systemNik);
+      if (systemProfile && hasModuleAccess_(systemNik, moduleName)) {
+        return { ok: true, profile: systemProfile, authSource: 'scheduled-preparation' };
+      }
+      return { ok: false, response: nsForbidden_('NIK admin scheduler tidak memiliki akses ke modul ' + moduleName + '.') };
+    }
     const resolved = resolveRequestUserProfile_(requesterNik);
     if (!resolved.ok || !resolved.profile || !resolved.profile.nik) {
       return { ok: false, response: nsForbidden_(resolved.message || 'Akses ditolak.') };
@@ -940,6 +962,61 @@
     } catch (e) {}
   }
 
+  function nsCacheRemove_(key) {
+    try { CacheService.getScriptCache().remove(key); } catch (e) {}
+  }
+
+  // Payload dashboard dapat melebihi batas 100 KB CacheService dan 50.000
+  // karakter per sel Spreadsheet. Simpan dalam potongan kecil di tab helper
+  // agar stabil sampai refresh terjadwal berikutnya.
+  function nsGetDashboardCacheSheet_(ss, createIfMissing) {
+    let sheet = ss.getSheetByName(NS_DASHBOARD_CACHE_SHEET_NAME);
+    if (!sheet && createIfMissing) {
+      sheet = ss.insertSheet(NS_DASHBOARD_CACHE_SHEET_NAME);
+      sheet.getRange(1, 1, 1, 4).setValues([['Cache Key', 'Refreshed On', 'Chunk', 'Payload JSON']]);
+      sheet.setFrozenRows(1);
+      sheet.hideSheet();
+    }
+    return sheet;
+  }
+
+  function nsReadPreparedPayload_(cacheKey) {
+    try {
+      const ss = nsGetSpreadsheet_();
+      const sheet = nsGetDashboardCacheSheet_(ss, false);
+      if (!sheet || sheet.getLastRow() < 2) return null;
+      const todayIso = nsToIsoDate_(nsStartOfDay_(new Date()));
+      const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+        .filter(function(row) { return String(row[0]) === cacheKey && String(row[1]) === todayIso; })
+        .sort(function(a, b) { return Number(a[2]) - Number(b[2]); });
+      if (!rows.length) return null;
+      const json = rows.map(function(row) { return String(row[3] || ''); }).join('');
+      return json ? JSON.parse(json) : null;
+    } catch (e) {
+      // Tab cache harus mempercepat, bukan membuat dashboard gagal saat pertama
+      // kali deploy atau ketika tab belum pernah dipersiapkan.
+      return null;
+    }
+  }
+
+  function nsResetPreparedCache_(ss) {
+    const sheet = nsGetDashboardCacheSheet_(ss, true);
+    if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).clearContent();
+    sheet.getRange(1, 1, 1, 4).setValues([['Cache Key', 'Refreshed On', 'Chunk', 'Payload JSON']]);
+    return sheet;
+  }
+
+  function nsWritePreparedPayloads_(sheet, payloads, refreshedOn) {
+    const rows = [];
+    payloads.forEach(function(item) {
+      const json = JSON.stringify(item.payload);
+      for (let start = 0, chunk = 1; start < json.length; start += NS_DASHBOARD_CACHE_CHUNK_SIZE, chunk++) {
+        rows.push([item.key, refreshedOn, chunk, json.slice(start, start + NS_DASHBOARD_CACHE_CHUNK_SIZE)]);
+      }
+    });
+    if (rows.length) sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+  }
+
   // =============================================================================
   // ENDPOINT - dipanggil index.html via google.script.run
   // =============================================================================
@@ -948,6 +1025,8 @@
     const gate = requireModuleAccess_(nik, 'NS Headcount');
     if (!gate.ok) return gate.response;
     try {
+      const prepared = nsReadPreparedPayload_('headcount');
+      if (prepared) return JSON.stringify(prepared);
       const cacheKey = nsCacheKey_('headcount');
       const cached = nsCacheGet_(cacheKey);
       if (cached) return JSON.stringify(cached);
@@ -1063,6 +1142,8 @@
     const gate = requireModuleAccess_(nik, 'NS Contract');
     if (!gate.ok) return gate.response;
     try {
+      const prepared = nsReadPreparedPayload_('contract');
+      if (prepared) return JSON.stringify(prepared);
       const cacheKey = nsCacheKey_('contract');
       const cached = nsCacheGet_(cacheKey);
       if (cached) return JSON.stringify(cached);
@@ -1185,6 +1266,8 @@
     const gate = requireModuleAccess_(nik, 'NS Recruitment');
     if (!gate.ok) return gate.response;
     try {
+      const prepared = nsReadPreparedPayload_('recruitment');
+      if (prepared) return JSON.stringify(prepared);
       const cacheKey = nsCacheKey_('recruitment');
       const cached = nsCacheGet_(cacheKey);
       if (cached) return JSON.stringify(cached);
@@ -1235,6 +1318,7 @@
         });
 
         return {
+          total: records.length,
           perJoinVia: perJoinVia,
           perReferensi: nsCountBy_(records, 'referensi'),
           referensiMapByJoinVia: referensiMapByJoinVia,
@@ -1352,6 +1436,33 @@
       label: NS_MONTH_LABELS_ID[month - 1] + ' ' + year,
       sortKey: year * 100 + month
     };
+  }
+
+  // Periode dashboard bersifat kalender YTD, tidak mengikuti periode terakhir
+  // yang kebetulan sudah diisi di plan. Misalnya pada September, dropdown selalu
+  // Jan..Sep meskipun plan September belum masuk; kondisi itu ditandai di UI.
+  function nsBuildYtdPeriodeList_(today) {
+    const ref = nsStartOfDay_(today || new Date());
+    const year = ref.getFullYear();
+    const currentMonth = ref.getMonth() + 1;
+    const list = [];
+    for (let month = 1; month <= currentMonth; month++) {
+      const mm = month < 10 ? '0' + month : String(month);
+      list.push({
+        iso: year + '-' + mm,
+        label: NS_MONTH_LABELS_ID[month - 1] + ' ' + year,
+        sortKey: year * 100 + month,
+        isCurrent: month === currentMonth,
+        asOfDate: month === currentMonth ? ref : nsStartOfDay_(new Date(year, month, 0))
+      });
+    }
+    return list;
+  }
+
+  function nsGetYtdPeriode_(periodeIso, today) {
+    const list = nsBuildYtdPeriodeList_(today);
+    const selected = list.filter(function(p) { return p.iso === periodeIso; })[0];
+    return selected || list[list.length - 1];
   }
 
   function nsGetManningSheet_(ss) {
@@ -1484,24 +1595,16 @@
     const gate = requireModuleAccess_(nik, 'NS Manning');
     if (!gate.ok) return gate.response;
     try {
+      const today = nsStartOfDay_(new Date());
+      const periodeList = nsBuildYtdPeriodeList_(today);
+      const selectedPeriode = nsGetYtdPeriode_(periodeIso, today);
+      const prepared = nsReadPreparedPayload_('manning:' + selectedPeriode.iso);
+      if (prepared) return JSON.stringify(prepared);
+
       const manning = nsBuildManningRecords_();
-      if (!manning.periodeList.length) {
-        return JSON.stringify({
-          status: 'error',
-          message: "Tidak ada data periode yang valid di sheet 'MANNING DISTRIBUTION'.",
-          data: null
-        });
-      }
-
-      const selectedIso = (periodeIso && manning.periodeList.some(function(p) { return p.iso === periodeIso; }))
-        ? periodeIso
-        : manning.periodeList[0].iso; // periodeList terurut turun -> [0] = terbaru
-
-      const selectedLabel = manning.periodeList.filter(function(p) { return p.iso === selectedIso; })[0].label;
-      const asOfDate = nsEndOfPeriode_(selectedIso);
-      if (!asOfDate) {
-        return JSON.stringify({ status: 'error', message: 'Periode Manning tidak valid: ' + selectedIso, data: null });
-      }
+      const selectedIso = selectedPeriode.iso;
+      const selectedLabel = selectedPeriode.label;
+      const asOfDate = selectedPeriode.asOfDate;
 
       const built = nsBuildRecords_();
       const aktualPadaPeriode = nsBuildAktualManningPadaPeriode_(built.records, asOfDate);
@@ -1558,15 +1661,15 @@
         return row;
       }).sort(function(a, b) { return b.planTotal - a.planTotal; });
 
-      // Tren rencana bulanan lintas SEMUA Cost Center. Catatan: sisi aktual TIDAK
-      // punya riwayat bulanan (MASTER KARYAWAN hanya snapshot kondisi terkini),
-      // jadi tren ini murni rencana - bukan perbandingan aktual vs rencana per bulan.
+      // Seed penuh Jan s/d bulan berjalan supaya periode YTD selalu stabil walau
+      // plan bulan tertentu belum diisi. Data plan di luar YTD sengaja tidak
+      // dirender ke dropdown ataupun tren.
       const trendMap = {};
+      periodeList.forEach(function(p) {
+        trendMap[p.iso] = { periodeIso: p.iso, label: p.label, sortKey: p.sortKey, planTotal: 0 };
+      });
       manning.records.forEach(function(m) {
-        if (!trendMap[m.periodeIso]) {
-          trendMap[m.periodeIso] = { periodeIso: m.periodeIso, label: m.periodeLabel, sortKey: m.periodeSortKey, planTotal: 0 };
-        }
-        trendMap[m.periodeIso].planTotal += m.headCount;
+        if (trendMap[m.periodeIso]) trendMap[m.periodeIso].planTotal += m.headCount;
       });
       const trend = Object.keys(trendMap).map(function(k) { return trendMap[k]; })
         .sort(function(a, b) { return a.sortKey - b.sortKey; });
@@ -1574,11 +1677,13 @@
       // Sama seperti trend di atas, tapi pecah per Tipe (DL/IDL/STAFF) - untuk
       // stacked chart & tabel breakdown bulanan per tipe.
       const trendByTypeMap = {};
+      periodeList.forEach(function(p) {
+        trendByTypeMap[p.iso] = { periodeIso: p.iso, label: p.label, sortKey: p.sortKey, byType: {} };
+      });
       manning.records.forEach(function(m) {
-        if (!trendByTypeMap[m.periodeIso]) {
-          trendByTypeMap[m.periodeIso] = { periodeIso: m.periodeIso, label: m.periodeLabel, sortKey: m.periodeSortKey, byType: {} };
+        if (trendByTypeMap[m.periodeIso]) {
+          trendByTypeMap[m.periodeIso].byType[m.type] = (trendByTypeMap[m.periodeIso].byType[m.type] || 0) + m.headCount;
         }
-        trendByTypeMap[m.periodeIso].byType[m.type] = (trendByTypeMap[m.periodeIso].byType[m.type] || 0) + m.headCount;
       });
       const trendByType = Object.keys(trendByTypeMap).map(function(k) { return trendByTypeMap[k]; })
         .sort(function(a, b) { return a.sortKey - b.sortKey; });
@@ -1606,11 +1711,12 @@
       const response = {
         status: 'success',
         data: {
-          periodeList: manning.periodeList,
+          periodeList: periodeList,
           selectedPeriode: { iso: selectedIso, label: selectedLabel },
           actualAsOf: {
             iso: nsToIsoDate_(asOfDate),
-            label: Utilities.formatDate(asOfDate, Session.getScriptTimeZone(), 'dd MMM yyyy')
+            label: Utilities.formatDate(asOfDate, Session.getScriptTimeZone(), 'dd MMM yyyy'),
+            isCurrentPeriod: selectedPeriode.isCurrent
           },
           kpi: {
             totalPlan: totalPlan,
@@ -1639,6 +1745,129 @@
       return JSON.stringify(response);
     } catch (error) {
       return JSON.stringify({ status: 'error', message: error.toString(), data: null });
+    }
+  }
+
+  function nsGetOrCreateHeadcountMonthlySheet_(ss) {
+    let sheet = ss.getSheetByName(NS_HEADCOUNT_MONTHLY_SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(NS_HEADCOUNT_MONTHLY_SHEET_NAME);
+      sheet.setFrozenRows(1);
+    }
+    sheet.getRange(1, 1, 1, 6).setValues([[
+      'Periode', 'As Of', 'Cost Center', 'Bagian', 'Headcount', 'Refreshed At'
+    ]]);
+    return sheet;
+  }
+
+  // Audit trail yang mudah dibaca di spreadsheet: satu baris per periode YTD
+  // dan Cost Center. Bulan berjalan memakai kondisi hari ini saat bot berjalan;
+  // bulan sebelumnya selalu ditutup pada hari terakhir bulannya.
+  function nsWriteHeadcountMonthly_(ss, built, periodeList, refreshedAt) {
+    const sheet = nsGetOrCreateHeadcountMonthlySheet_(ss);
+    if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).clearContent();
+
+    const rows = [];
+    periodeList.forEach(function(periode) {
+      const population = nsBuildAktualManningPadaPeriode_(built.records, periode.asOfDate).records;
+      const byCostCenter = {};
+      population.forEach(function(record) {
+        const cc = record.costCenter || NSRECORD_UNKNOWN;
+        if (!byCostCenter[cc]) byCostCenter[cc] = { count: 0, bagian: record.bagian || NSRECORD_UNKNOWN };
+        byCostCenter[cc].count++;
+      });
+      Object.keys(byCostCenter).sort().forEach(function(cc) {
+        const row = byCostCenter[cc];
+        rows.push([periode.label, nsToIsoDate_(periode.asOfDate), cc, row.bagian, row.count, refreshedAt]);
+      });
+    });
+    if (rows.length) sheet.getRange(2, 1, rows.length, 6).setValues(rows);
+    sheet.autoResizeColumns(1, 6);
+    return rows.length;
+  }
+
+  // Jalankan manual SEKALI dari GAS Editor setelah deploy. Tanpa parameter,
+  // NIK diambil dari email effective user; parameter hanya berguna untuk test
+  // atau bila admin ingin menjalankannya dari editor dengan wrapper sendiri.
+  // Fungsi berakhiran underscore tidak dapat dipanggil dari google.script.run.
+  function nsInstallDailyDashboardRefresh_(adminNik) {
+    let nik = nsTrim_(adminNik) || nsTrim_(PropertiesService.getScriptProperties().getProperty(NS_DASHBOARD_REFRESH_NIK_PROPERTY));
+    if (!nik) {
+      const effectiveEmail = (Session.getEffectiveUser().getEmail() || '').toString().trim();
+      const profile = getKaryawanProfileByEmail_(effectiveEmail);
+      nik = profile ? nsTrim_(profile.nik) : '';
+    }
+    if (!nik) {
+      throw new Error('NIK admin scheduler tidak ditemukan. Tambahkan Script Property NS_DASHBOARD_REFRESH_NIK, lalu jalankan kembali.');
+    }
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty(NS_DASHBOARD_REFRESH_NIK_PROPERTY, nik);
+
+    ScriptApp.getProjectTriggers().forEach(function(trigger) {
+      if (trigger.getHandlerFunction() === NS_DASHBOARD_REFRESH_HANDLER) ScriptApp.deleteTrigger(trigger);
+    });
+    ScriptApp.newTrigger(NS_DASHBOARD_REFRESH_HANDLER)
+      .timeBased()
+      .atHour(1)
+      .nearMinute(0)
+      .everyDays(1)
+      .inTimezone(Session.getScriptTimeZone())
+      .create();
+
+    // Isi pertama tersedia langsung; pengguna tidak perlu menunggu dini hari.
+    return nsRefreshDashboardCache_();
+  }
+
+  // Target installable trigger. Jangan dipanggil dari UI karena ia menulis tab
+  // helper; hanya trigger dan GAS Editor yang boleh menjalankannya.
+  function nsRefreshDashboardCache_() {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+      const adminNik = nsTrim_(PropertiesService.getScriptProperties().getProperty(NS_DASHBOARD_REFRESH_NIK_PROPERTY));
+      if (!adminNik) {
+        throw new Error('NS_DASHBOARD_REFRESH_NIK belum diatur. Jalankan nsInstallDailyDashboardRefresh_(NIK_ADMIN) dari GAS Editor.');
+      }
+
+      nsScheduledPreparation_ = true;
+      const ss = nsGetSpreadsheet_();
+      const refreshedOn = nsToIsoDate_(nsStartOfDay_(new Date()));
+      const refreshedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+      const cacheSheet = nsResetPreparedCache_(ss);
+
+      // Pastikan data hasil refresh tidak berasal dari CacheService 10 menit.
+      ['headcount', 'contract', 'recruitment'].forEach(function(name) {
+        nsCacheRemove_(nsCacheKey_(name));
+      });
+
+      const payloads = [];
+      [
+        { key: 'headcount', call: function() { return getNsHeadcountData(adminNik); } },
+        { key: 'contract', call: function() { return getNsContractData(adminNik); } },
+        { key: 'recruitment', call: function() { return getNsRecruitmentData(adminNik); } }
+      ].forEach(function(item) {
+        const response = JSON.parse(item.call());
+        if (response.status !== 'success') throw new Error('Gagal menyiapkan ' + item.key + ': ' + (response.message || response.status));
+        response.data.preparedAt = refreshedAt;
+        payloads.push({ key: item.key, payload: response });
+      });
+
+      const periodeList = nsBuildYtdPeriodeList_(new Date());
+      periodeList.forEach(function(periode) {
+        const response = JSON.parse(getNsManningData(adminNik, periode.iso));
+        if (response.status !== 'success') throw new Error('Gagal menyiapkan Manning ' + periode.iso + ': ' + (response.message || response.status));
+        response.data.preparedAt = refreshedAt;
+        payloads.push({ key: 'manning:' + periode.iso, payload: response });
+      });
+
+      nsWritePreparedPayloads_(cacheSheet, payloads, refreshedOn);
+      const built = nsBuildRecords_();
+      const monthlyRows = nsWriteHeadcountMonthly_(ss, built, periodeList, refreshedAt);
+      SpreadsheetApp.flush();
+      return { ok: true, refreshedAt: refreshedAt, cachedPayloads: payloads.length, monthlyRows: monthlyRows };
+    } finally {
+      nsScheduledPreparation_ = false;
+      lock.releaseLock();
     }
   }
 

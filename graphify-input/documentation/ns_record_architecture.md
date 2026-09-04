@@ -110,7 +110,9 @@ Untuk memberikan pengalaman analisis data HR yang intuitif dan cepat:
 | `getNsHeadcountData(nik)` | Panel Headcount & Demografi: KPI, per departemen/bagian/group/gender/ring/usia. |
 | `getNsContractData(nik)` | Panel Contract Watchlist: KPI bucket jatuh tempo, watchlist 90 hari terurut, breakdown masa kerja per section & jabatan (`buildContractTenureBreakdown_`). |
 | `getNsRecruitmentData(nik)` | Panel Rekrutmen: retensi per sumber, tren bulanan, referensi, domisili. |
-| `getNsManningData(nik, periodeIso)` | Panel Manning Distribution: rencana (plan) vs aktual per Cost Center & Departemen untuk periode terpilih (default: periode terbaru), plus tren rencana bulanan. Sumber rencana: sheet `MANNING DISTRIBUTION`. Aktual dihitung **per akhir periode** dari `Tanggal Masuk <= akhir periode` dan `Tanggal Efektif Non Aktif > akhir periode`; join lewat kolom `COST CENTER` di MASTER KARYAWAN. Endpoint sengaja tidak memakai CacheService agar dropdown dan Pareto langsung mengikuti perubahan sheet. |
+| `getNsManningData(nik, periodeIso)` | Panel Manning Distribution: periode selalu **Jan sampai bulan berjalan** (YTD terhadap `NOW()`), default bulan berjalan. Bulan berjalan dihitung sampai hari ini; bulan lampau ditutup pada akhir bulan. Plan dari `MANNING DISTRIBUTION`, aktual dari `Tanggal Masuk <= as-of` dan `Tanggal Efektif Non Aktif > as-of`. Payload harian siap-baca diprioritaskan agar UI tidak mengolah raw table saat pagi hari. |
+| `nsInstallDailyDashboardRefresh_()` | **Dijalankan sekali dari GAS Editor setelah deploy.** Mengambil NIK dari email effective user (atau Script Property `NS_DASHBOARD_REFRESH_NIK` bila perlu), membuat/mereset installable trigger harian sekitar 01.00 Asia/Jakarta, lalu langsung menjalankan refresh pertama. |
+| `nsRefreshDashboardCache_()` | Target trigger privat: menghitung 4 panel dari raw source, menyimpan payload siap-baca ke `_NS_DASHBOARD_CACHE`, lalu menulis audit trail YTD Cost Center ke `NS HEADCOUNT MONTHLY`. |
 | `nsRecordSelfTest()` | **Dijalankan manual dari GAS Editor.** Verifikasi koneksi + struktur kolom tanpa lewat UI. Log jumlah record, kolom hilang, NIK duplikat, headcount per departemen. Tidak butuh hak modul. |
 
 **Konvensi endpoint (semua 4 endpoint data):** parameter `nik` di posisi **pertama**, `return JSON.stringify(...)`, digerbangi `requireModuleAccess_`, cache `CacheService` 10 menit.
@@ -119,7 +121,8 @@ Untuk memberikan pengalaman analisis data HR yang intuitif dan cepat:
 
 | Fungsi | Deskripsi |
 |---|---|
-| `nsBuildManningRecords_()` | Baca sheet `MANNING DISTRIBUTION`, parse tiap baris jadi `{type, periodeIso, periodeLabel, periodeSortKey, costCenter, namaCostCenter, headCount}`. Baris dengan `costCenter`/`periode` kosong atau tidak valid dilewati. Mengembalikan juga `periodeList` (unik, terurut turun berdasarkan bulan terbaru). |
+| `nsBuildManningRecords_()` | Baca sheet `MANNING DISTRIBUTION`, parse tiap baris jadi `{type, periodeIso, periodeLabel, periodeSortKey, costCenter, namaCostCenter, headCount}`. Baris dengan `costCenter`/`periode` kosong atau tidak valid dilewati. Periode UI sendiri dibentuk oleh kalender YTD, bukan oleh periode terakhir yang tersedia di plan. |
+| `nsBuildYtdPeriodeList_(today)` | Bentuk Jan sampai bulan `today`; memastikan dropdown tetap memiliki bulan berjalan meskipun plan bulan itu belum diisi. |
 | `nsBuildManningColumnIndex_(headerRow)` / `nsFindColumn_(headerRow, aliasList)` | Cari indeks kolom sheet Manning by nama header (exact match lalu fallback tag), independen dari `nsBuildColumnIndex_` milik MASTER KARYAWAN. |
 | `nsParsePeriode_(raw)` | Normalisasi kolom `Periode` yang formatnya campur: string `"MM.YYYY"` (mis. `"04.2026"`) atau angka `M(M)YYYY` tanpa leading zero (mis. `112025` = Nov 2025, `22026` = Feb 2026). Mengembalikan `{iso, label, sortKey}` atau `null` kalau tidak bisa di-parse. |
 | `nsBuildCostCenterBagianMap_(allRecords)` | Petakan tiap `costCenter` ke `bagian` (Departemen) berdasarkan **mayoritas** karyawan aktual di Cost Center itu — sheet Manning sendiri tidak punya kolom Departemen, jadi ini bukan sumber independen. Cost Center tanpa karyawan aktual sama sekali jatuh ke `(Tidak Diketahui)`. |
@@ -235,6 +238,14 @@ Lapisan auth dan endpoint terduplikasi secara independen sehingga aplikasi dapat
 
 **Wajib setelah paste:** buat deployment/version baru (`Deploy > New deployment` atau `Manage deployments > New version`) — menyimpan kode di editor **tidak otomatis** memperbarui URL `/exec` yang sudah ada (lihat jebakan operasional di §1.1). Kalau lupa, URL live akan tetap menyajikan kode versi sebelumnya walau file di editor sudah benar.
 
+### 6.1 Menyalakan prepared dashboard (sekali saja)
+
+1. Pastikan akun Google pemilik script terdaftar di sheet `KARYAWAN` dan NIK-nya memiliki nilai `1` untuk keempat modul NS.
+2. Setelah `ns record.gs` ter-paste dan disimpan, pilih fungsi `nsInstallDailyDashboardRefresh_` di GAS Editor, lalu jalankan dan setujui otorisasi. Jika email owner tidak ada di KARYAWAN, buat Script Property `NS_DASHBOARD_REFRESH_NIK` berisi NIK admin terlebih dahulu.
+3. Fungsi tersebut membuat dua tab di spreadsheet HR DASHBOARD: `NS HEADCOUNT MONTHLY` (terlihat, audit trail YTD per Cost Center) dan `_NS_DASHBOARD_CACHE` (tersembunyi, payload UI siap-baca).
+
+Google Apps Script menargetkan pukul 01.00 Asia/Jakarta, namun clock trigger dapat berjalan sekitar ±15 menit. Setelah proses pertama selesai, tiap pagi app membaca cache yang dibuat hari itu; jika cache belum ada/terlambat, endpoint aman melakukan fallback ke perhitungan live.
+
 ---
 
 ## 7. Gating Akses
@@ -279,6 +290,12 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 - **B2 (digantikan 4 Sep 2026)**: Aktual Manning sekarang direkonstruksi pada akhir periode terpilih memakai Tanggal Masuk dan Tanggal Efektif Non Aktif; bukan lagi snapshot hari ini. Cache server untuk Manning juga dihapus agar dropdown periode dan Pareto selalu membaca perubahan sheet terbaru.
 - **D5**: dead payload `perKeteranganKontrak` + fungsi `sortKontrak` + whitelist `cSiklus` di check_html dibuang.
 - **A2 (tidak dikerjakan, dicatat di §10)**: password plaintext sheet KARYAWAN perlu keputusan lintas-aplikasi (sheet dipakai bersama DAM PORTAL & EWO).
+
+### 4 Sep 2026 — Prepared dashboard, periode YTD, dan validasi Recruitment
+- **Periode Manning:** dropdown otomatis Jan sampai bulan berjalan terhadap `NOW()`. Default selalu bulan berjalan; data aktual bulan berjalan dihitung sampai hari ini dan periode lampau sampai akhir bulan.
+- **Prepared dashboard:** trigger installable sekitar 01.00 Asia/Jakarta menyiapkan payload Headcount, Contract, Recruitment, dan setiap periode Manning YTD. `_NS_DASHBOARD_CACHE` dipakai aplikasi agar tidak menghitung raw MASTER KARYAWAN saat user membuka panel; `NS HEADCOUNT MONTHLY` adalah audit trail yang terlihat.
+- **UI Manning:** struktur peringatan diperbaiki (penutup DOM lengkap), tabel ditata grid responsif, dan label Cost Center kecil tidak lagi bertumpuk di Pareto.
+- **Recruitment:** Retensi sumber, tren perekrutan, dan alasan keluar kini selalu memakai seluruh riwayat; filter AKTIF/NON AKTIF tidak lagi menghasilkan retensi 100% palsu atau chart alasan keluar kosong.
 
 ### 28 Agu 2026 — Git repo + GitNexus live + perbaikan tooling & harness
 - **Git repo diinisialisasi** (branch `main`, baseline commit) — `detect-changes` GitNexus sekarang berfungsi. `.gitignore` mengecualikan `REF/` & `tools/sheet_values.json` (PII, audit A3), `.gitnexus/`, `graphify-out/cache/`, `node_modules/`.

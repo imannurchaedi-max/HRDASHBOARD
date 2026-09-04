@@ -584,6 +584,23 @@
       margin-bottom: 16px;
     }
 
+    .manning-detail-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.8fr) minmax(300px, 0.95fr) minmax(420px, 1.35fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 1450px) {
+      .manning-detail-grid { grid-template-columns: repeat(2, minmax(300px, 1fr)); }
+      .manning-detail-grid .panel:last-child { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 820px) {
+      .manning-detail-grid { grid-template-columns: 1fr; }
+      .manning-detail-grid .panel:last-child { grid-column: auto; }
+    }
+
     .panel {
       background: var(--card-bg);
       backdrop-filter: blur(12px);
@@ -1609,10 +1626,10 @@
               anchor: 'center', align: 'center',
               color: '#1e293b',
               font: { size: 9, weight: 700 },
-              formatter: function (v, ctx) {
-                if (!v) return '';
-                var name = ctx.dataset.ccNames[ctx.dataIndex];
-                return name ? [name, nf(v)] : nf(v);
+              formatter: function (v) {
+                // Nama Cost Center panjang dan segmen kecil sebelumnya saling
+                // menimpa. Nilai lengkap tetap tersedia pada tooltip dan tabel.
+                return v >= 20 ? nf(v) : '';
               }
             },
             tooltip: {
@@ -1645,14 +1662,15 @@
       var noteAktualAsOf = '<div class="warn"><span class="warn-i">&#9432;</span><div>' +
         '<div class="warn-t">Aktual per ' + esc(actualAsOf.label || d.selectedPeriode.label) + '</div>' +
         '<div class="warn-b">Headcount dihitung dari karyawan dengan Tanggal Masuk pada/sebelum akhir periode ' +
-        'dan Tanggal Efektif Non Aktif setelah akhir periode tersebut.</div></div>';
+        'dan Tanggal Efektif Non Aktif setelah akhir periode tersebut.</div></div></div>';
       var dateQualityWarning = (d.warnings.tanpaTanggalMasuk || d.warnings.nonAktifTanpaTanggalKeluar)
         ? '<div class="warn crit"><span class="warn-i">&#9888;</span><div>' +
           '<div class="warn-t">Ada data tanggal yang tidak dapat dipetakan ke periode</div>' +
           '<div class="warn-b">Tanpa Tanggal Masuk: ' + nf(d.warnings.tanpaTanggalMasuk || 0) +
-          '; status NON AKTIF tanpa Tanggal Efektif Non Aktif: ' + nf(d.warnings.nonAktifTanpaTanggalKeluar || 0) + '.</div></div>'
+          '; status NON AKTIF tanpa Tanggal Efektif Non Aktif: ' + nf(d.warnings.nonAktifTanpaTanggalKeluar || 0) + '.</div></div></div>'
         : '';
       $('viewChip').textContent = 'Periode: ' + d.selectedPeriode.label;
+      $('updChip').textContent = d.preparedAt ? 'Data siap ' + d.preparedAt : 'Live dari sheet';
 
       var periodeOptions = d.periodeList.map(function (p) {
         return '<option value="' + esc(p.iso) + '"' + (p.iso === d.selectedPeriode.iso ? ' selected' : '') + '>' + esc(p.label) + '</option>';
@@ -1704,7 +1722,11 @@
           '</tr>';
       }).join('');
 
-      var warnUnmapped = (d.warnings.costCenterTanpaRencana && d.warnings.costCenterTanpaRencana.length)
+      var warnUnmapped = k.totalPlan === 0
+        ? '<div class="warn"><span class="warn-i">&#9432;</span><div>' +
+          '<div class="warn-t">Rencana Manning ' + esc(d.selectedPeriode.label) + ' belum tersedia</div>' +
+          '<div class="warn-b">Periode kalender YTD tetap ditampilkan. Isi plan di MANNING DISTRIBUTION agar Gap dan Fulfillment dapat dibandingkan.</div></div></div>'
+        : (d.warnings.costCenterTanpaRencana && d.warnings.costCenterTanpaRencana.length)
         ? '<div class="warn crit"><span class="warn-i">&#9888;</span><div>' +
         '<div class="warn-t">' + d.warnings.costCenterTanpaRencana.length + ' Cost Center karyawan aktif tidak ada di rencana Manning periode ini</div>' +
         '<div class="warn-b">' + d.warnings.costCenterTanpaRencana.map(esc).join(', ') +
@@ -1727,6 +1749,7 @@
         card('Tren Rencana Bulanan per Tipe (DL / IDL / STAFF)', 'klik salah satu bulan untuk lihat breakdown Cost Center', canvas('cManningTrend')) +
         card('Distribusi Cost Center per Tipe - ' + esc(d.selectedPeriode.label), 'top ' + NS_MANNING_CC_FOLD_LIMIT + ' Cost Center terbesar + Lainnya, tiap Tipe', canvas('cManningCCByType')) +
         '</div>' +
+        '<div class="manning-detail-grid">' +
         card('Tren Rencana Bulanan - Detail Angka', (d.trend || []).length + ' bulan',
           '<div class="tw"><table><thead><tr>' +
           '<th>Periode</th><th style="text-align:right">DL</th><th style="text-align:right">IDL</th><th style="text-align:right">STAFF</th>' +
@@ -1747,7 +1770,8 @@
           '<th style="text-align:right">Selisih</th><th style="text-align:right">Fulfillment</th>' +
           '</tr></thead><tbody>' +
           (ccRows || '<tr><td colspan="7" style="padding:20px;text-align:center;color:#475569">Tidak ada data.</td></tr>') +
-          '</tbody></table></div>');
+          '</tbody></table></div>') +
+        '</div>';
 
       destroyCharts();
       stackedTypeChart_('cManningTrend', trendByType);
@@ -2301,14 +2325,22 @@
       var d = RAW_RECRUITMENT_DATA;
       var mode = CURRENT_GLOBAL_SEGMENT;
       var payload = mode === 'nonAktif' ? (d.nonAktifData || d) : (mode === 'all' ? (d.allData || d) : (d.aktifData || d));
+      // Retensi, tren rekrutmen, dan alasan keluar adalah metrik riwayat. Jika
+      // dihitung dari segmen AKTIF saja maka retensi selalu 100% dan chart alasan
+      // keluar kosong - dua hasil yang tidak valid secara bisnis.
+      var historical = d.allData || d;
+      var retentionSources = historical.perJoinVia || d.perJoinVia || [];
+      var recruitmentTrend = historical.trenMasuk || d.trenMasuk || [];
+      var exitReasons = historical.perReasonKeluar || d.perReasonKeluar || [];
       var k = d.kpi;
 
-      $('viewChip').textContent = nf(k.total) + ' record - ' + mode.toUpperCase();
-      if (payload.trenMasuk && payload.trenMasuk.length) {
-        $('updChip').textContent = payload.trenMasuk[0].label + ' s/d ' + payload.trenMasuk[payload.trenMasuk.length - 1].label;
-      }
+      $('viewChip').textContent = nf(payload.total === undefined ? k.total : payload.total) + ' record - ' + mode.toUpperCase();
+      var recruitmentRange = recruitmentTrend.length
+        ? recruitmentTrend[0].label + ' s/d ' + recruitmentTrend[recruitmentTrend.length - 1].label
+        : '';
+      $('updChip').textContent = recruitmentRange + (d.preparedAt ? (recruitmentRange ? ' | ' : '') + 'Data siap ' + d.preparedAt : '');
 
-      var dead = (payload.perJoinVia || d.perJoinVia).filter(function (s) { return s.aktif === 0 && s.total >= 5; });
+      var dead = retentionSources.filter(function (s) { return s.aktif === 0 && s.total >= 5; });
       var deadWarn = dead.length
         ? '<div class="warn crit"><span class="warn-i">&#9888;</span><div>' +
         '<div class="warn-t">Sumber dengan retensi 0%: ' + dead.map(function (s) { return esc(s.label); }).join(', ') + '</div>' +
@@ -2317,7 +2349,7 @@
         }).join('. ') + '.</div></div></div>'
         : '';
 
-      var retHtml = '<div class="ret">' + (payload.perJoinVia || d.perJoinVia).map(function (s) {
+      var retHtml = '<div class="ret">' + retentionSources.map(function (s) {
         var color = s.retensiPersen >= 65 ? '#10b981' : s.retensiPersen >= 40 ? '#f59e0b' : '#ef4444';
         return '<div class="ret-r"><div class="ret-h">' +
           '<span class="ret-n">' + esc(s.label) + '</span>' +
@@ -2347,33 +2379,36 @@
         '<div class="kpi-grid">' +
         kpi('Total Direkrut', nf(k.total), 'seluruh riwayat') +
         kpi('Masih Aktif', nf(k.totalAktif), k.total ? 'retensi ' + (Math.round(k.totalAktif / k.total * 1000) / 10).toString().replace('.', ',') + '%' : '', '#10b981') +
-        kpi('Sumber Rekrutmen', nf(k.jumlahSumber), (payload.perJoinVia || d.perJoinVia).map(function (s) { return s.label; }).join(' - ')) +
+        kpi('Sumber Rekrutmen', nf(k.jumlahSumber), retentionSources.map(function (s) { return s.label; }).join(' - ')) +
         kpi('Referensi Unik', nf(k.jumlahReferensi), 'setelah normalisasi ejaan') +
         '</div>' +
-        card('Retensi per Sumber Rekrutmen', 'hijau = masih aktif, merah = sudah keluar', retHtml) +
-        card('Tren Rekrutmen per Bulan', 'berdasarkan Tanggal Masuk', canvas('cTren')) +
+        card('Retensi per Sumber Rekrutmen', 'seluruh riwayat: hijau = masih aktif, merah = sudah keluar', retHtml) +
+        card('Tren Rekrutmen per Bulan', 'seluruh riwayat berdasarkan Tanggal Masuk', canvas('cTren')) +
         '<div class="report-shift-grid">' +
         card('Join Via (Sumber Rekrutmen)', 'klik batang diagram untuk filter Referensi', canvas('cJoinVia', true)) +
         card('Referensi Terbesar', refSubTitle, canvas('cRef', true)) +
         '</div>' +
         '<div class="report-shift-grid">' +
-        card('Alasan Keluar Utama', mode === 'aktif' ? 'catatan riwayat keluar' : 'karyawan non aktif', canvas('cReason', true)) +
+        card('Alasan Keluar Utama', 'seluruh riwayat karyawan non aktif', canvas('cReason', true)) +
         card('Kecamatan Teratas', 'domisili karyawan', canvas('cKec', true)) +
         '</div>';
 
       destroyCharts();
-      lineChart('cTren', payload.trenMasuk || d.trenMasuk);
+      lineChart('cTren', recruitmentTrend);
       var barColor = mode === 'nonAktif' ? '#ef4444' : (mode === 'all' ? '#8b5cf6' : '#3b82f6');
       
       barChart('cJoinVia', (payload.perJoinVia || d.perJoinVia).slice(0, 8), true, barColor, false, function (label) {
         selectJoinViaFilter(label);
       });
       barChart('cRef', refData.slice(0, 8), true, '#8b5cf6');
-      barChart('cReason', (payload.perReasonKeluar || d.perReasonKeluar).slice(0, 8), true, '#ef4444');
+      barChart('cReason', exitReasons.slice(0, 8), true, '#ef4444');
       barChart('cKec', (payload.perKecamatan || d.perKecamatan).slice(0, 8), true, '#06b6d4');
     }
 
     function render(view, data) {
+      if (data && data.preparedAt && view !== 'recruitment' && view !== 'manning') {
+        $('updChip').textContent = 'Data siap ' + data.preparedAt;
+      }
       if (view === 'headcount') renderHeadcount(data);
       else if (view === 'contract') renderContract(data);
       else if (view === 'recruitment') renderRecruitment(data);
