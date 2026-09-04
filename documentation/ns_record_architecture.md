@@ -1,6 +1,6 @@
 # Arsitektur HR DASHBOARD (NS RECORD)
 
-Aplikasi web pencatatan & pelaporan karyawan **Non Staff (NS)** PT DAM berbasis Google Apps Script. Update terakhir: **7 Agu 2026**.
+Aplikasi web pencatatan & pelaporan karyawan **Non Staff (NS)** PT DAM berbasis Google Apps Script. Update terakhir: **4 Sep 2026**.
 
 > **NS = Non Staff** (karyawan level floor). Seluruh isi sheet `MASTER KARYAWAN` adalah Non Staff — tidak ada filter level di aplikasi ini.
 
@@ -226,6 +226,27 @@ Lapisan auth dan endpoint terduplikasi secara independen sehingga aplikasi dapat
 
 ---
 
+### 5.1 Peta runtime, semantic, dan neural
+
+Peta arsitektur yang dapat dijadikan titik mulai operasional ada di
+[runtime_dependency_mapping.md](runtime_dependency_mapping.md). Diagram visualnya ada
+di [semantic_neural_dependency_map.svg](semantic_neural_dependency_map.svg).
+
+Artefak tersebut dibangun ulang pada 4 Sep 2026 dari source aktif, bukan dari
+nama tab UI:
+
+- Graphify: 391 node dan 5.800 edge untuk source, dokumentasi, dan artefak
+  yang terdeteksi.
+- GitNexus: 1.945 node runtime, 4.403 edge, 77 flow, PDG aktif, serta 281
+  embedding. Pencarian semantic berjalan melalui exact scan karena ekstensi
+  vector LadybugDB belum tersedia pada mesin ini.
+
+graphify-out/graph.json adalah graph mesin yang lengkap; dokumen mapping
+meringkas node yang menjadi kontrak operasional. Jangan menganggap node graph
+sebagai data HR atau menaruh data karyawan/PII ke artefak graph.
+
+---
+
 ## 6. Deployment
 
 > Deployment = **copy-paste manual via GAS Editor**. Tidak pakai `clasp`.
@@ -296,6 +317,18 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 - **Prepared dashboard:** trigger installable sekitar 01.00 Asia/Jakarta menyiapkan payload Headcount, Contract, Recruitment, dan setiap periode Manning YTD. `_NS_DASHBOARD_CACHE` dipakai aplikasi agar tidak menghitung raw MASTER KARYAWAN saat user membuka panel; `NS HEADCOUNT MONTHLY` adalah audit trail yang terlihat.
 - **UI Manning:** struktur peringatan diperbaiki (penutup DOM lengkap), tabel ditata grid responsif, dan label Cost Center kecil tidak lagi bertumpuk di Pareto.
 - **Recruitment:** Retensi sumber, tren perekrutan, dan alasan keluar kini selalu memakai seluruh riwayat; filter AKTIF/NON AKTIF tidak lagi menghasilkan retensi 100% palsu atau chart alasan keluar kosong.
+
+### 4 Sep 2026 - Pemetaan arsitektur dan semantic/neural graph diperbarui
+- **Peta runtime:** ditambahkan runtime_dependency_mapping.md untuk memisahkan
+  shell redirect, autentikasi, source sheet, cache siap-baca, endpoint analitik,
+  dan renderer UI. Ini adalah rujukan untuk melacak perubahan tanpa menebak
+  tab sumber.
+- **SVG:** semantic_neural_dependency_map.svg kini menunjukkan jalur
+  CONFIG!A2 -> Shell -> backend -> index.html, empat endpoint, jalur bot
+  harian, dan kontrak Cost Center Manning.
+- **Semantic/neural:** Graphify dibangun ulang (391 node / 5.800 edge).
+  GitNexus diindeks ulang dengan PDG dan 281 embedding; semantic exact-scan
+  aktif. Vector search belum diklaim aktif karena ekstensi platform tidak ada.
 
 ### 28 Agu 2026 — Git repo + GitNexus live + perbaikan tooling & harness
 - **Git repo diinisialisasi** (branch `main`, baseline commit) — `detect-changes` GitNexus sekarang berfungsi. `.gitignore` mengecualikan `REF/` & `tools/sheet_values.json` (PII, audit A3), `.gitnexus/`, `graphify-out/cache/`, `node_modules/`.

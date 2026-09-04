@@ -1,26 +1,26 @@
 # GRAPH_REPORT
 
-Generated: 2026-09-04T04:44:31.051278Z
+Generated: 2026-09-04T07:23:32.014872Z
 
 ## Overview
 
-- Nodes: 338
-- Edges: 1066
+- Nodes: 391
+- Edges: 5800
 - Communities: 1
-- Detection total files: 26
+- Detection total files: 32
 - Tokens in/out: 0 / 0
 
 ## Communities
 
-- Community 1: Auth & Session (AGENTS.md, CLAUDE.md, SKILL.md) (338 nodes, cohesion 1.0)
+- Community 1: Auth & Session (AGENTS.md, CLAUDE.md, SKILL.md) (391 nodes, cohesion 1.0)
 
 ## God Nodes
 
-- ns record.gs (degree 65)
-- ns record.js (degree 65)
-- index.html (degree 61)
-- index.html (degree 61)
-- nsCountBy_ (degree 56)
+- getKaryawanData_ (degree 790)
+- nsBuildProfile_ (degree 545)
+- nsWithRetry_ (degree 482)
+- getModuleAccessMapFromRow_ (degree 482)
+- setGlobalSegment (degree 358)
 
 ## Cross-Community Links
 
