@@ -351,8 +351,12 @@ res = JSON.parse(sandbox.getNsManningData('888'));
 check('status', res.status, 'forbidden');
 
 hr('Prepared dashboard - scheduler 01.00 dan tab helper');
-sessionEmail = '';
-const preparation = sandbox.nsInstallDailyDashboardRefresh_();
+sessionEmail = 'noakses@contoh.com';
+let schedulerDenied = false;
+try { sandbox.nsInstallDailyDashboardRefresh(); } catch (e) { schedulerDenied = true; }
+check('scheduler menolak akun bukan owner', schedulerDenied, true);
+sessionEmail = 'uji@contoh.com';
+const preparation = sandbox.nsInstallDailyDashboardRefresh();
 check('scheduler membuat trigger harian', scheduledTriggers.length, 1);
 check('scheduler menyiapkan 3 panel + 7 periode Manning', preparation.cachedPayloads, 10);
 check('scheduler membuat tab cache tersembunyi', !!nsSheetsByName._NS_DASHBOARD_CACHE, true);

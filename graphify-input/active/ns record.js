@@ -1786,7 +1786,18 @@
     return rows.length;
   }
 
-  // Jalankan manual SEKALI dari GAS Editor setelah deploy. Tanpa parameter,
+  // Fungsi ini tampil pada dropdown Run GAS Editor. Akses browser ditolak kecuali
+  // akun yang menjalankan identik dengan owner script.
+  function nsInstallDailyDashboardRefresh() {
+    const activeEmail = (Session.getActiveUser().getEmail() || '').toString().trim().toLowerCase();
+    const ownerEmail = (Session.getEffectiveUser().getEmail() || '').toString().trim().toLowerCase();
+    if (!activeEmail || !ownerEmail || activeEmail !== ownerEmail) {
+      throw new Error('Setup scheduler hanya boleh dijalankan oleh akun pemilik script dari GAS Editor.');
+    }
+    return nsInstallDailyDashboardRefresh_();
+  }
+
+  // Jalankan internal SEKALI dari wrapper di atas. Tanpa parameter,
   // NIK diambil dari email effective user; parameter hanya berguna untuk test
   // atau bila admin ingin menjalankannya dari editor dengan wrapper sendiri.
   // Fungsi berakhiran underscore tidak dapat dipanggil dari google.script.run.
@@ -1826,7 +1837,7 @@
     try {
       const adminNik = nsTrim_(PropertiesService.getScriptProperties().getProperty(NS_DASHBOARD_REFRESH_NIK_PROPERTY));
       if (!adminNik) {
-        throw new Error('NS_DASHBOARD_REFRESH_NIK belum diatur. Jalankan nsInstallDailyDashboardRefresh_(NIK_ADMIN) dari GAS Editor.');
+        throw new Error('NS_DASHBOARD_REFRESH_NIK belum diatur. Jalankan nsInstallDailyDashboardRefresh dari GAS Editor.');
       }
 
       nsScheduledPreparation_ = true;

@@ -111,7 +111,7 @@ Untuk memberikan pengalaman analisis data HR yang intuitif dan cepat:
 | `getNsContractData(nik)` | Panel Contract Watchlist: KPI bucket jatuh tempo, watchlist 90 hari terurut, breakdown masa kerja per section & jabatan (`buildContractTenureBreakdown_`). |
 | `getNsRecruitmentData(nik)` | Panel Rekrutmen: retensi per sumber, tren bulanan, referensi, domisili. |
 | `getNsManningData(nik, periodeIso)` | Panel Manning Distribution: periode selalu **Jan sampai bulan berjalan** (YTD terhadap `NOW()`), default bulan berjalan. Bulan berjalan dihitung sampai hari ini; bulan lampau ditutup pada akhir bulan. Plan dari `MANNING DISTRIBUTION`, aktual dari `Tanggal Masuk <= as-of` dan `Tanggal Efektif Non Aktif > as-of`. Payload harian siap-baca diprioritaskan agar UI tidak mengolah raw table saat pagi hari. |
-| `nsInstallDailyDashboardRefresh_()` | **Dijalankan sekali dari GAS Editor setelah deploy.** Mengambil NIK dari email effective user (atau Script Property `NS_DASHBOARD_REFRESH_NIK` bila perlu), membuat/mereset installable trigger harian sekitar 01.00 Asia/Jakarta, lalu langsung menjalankan refresh pertama. |
+| `nsInstallDailyDashboardRefresh()` | **Dijalankan sekali dari dropdown Run GAS Editor setelah deploy.** Mengambil NIK dari email owner (atau Script Property `NS_DASHBOARD_REFRESH_NIK` bila perlu), membuat/mereset installable trigger harian sekitar 01.00 Asia/Jakarta, lalu langsung menjalankan refresh pertama. Hanya akun pemilik script yang diizinkan menjalankannya. |
 | `nsRefreshDashboardCache_()` | Target trigger privat: menghitung 4 panel dari raw source, menyimpan payload siap-baca ke `_NS_DASHBOARD_CACHE`, lalu menulis audit trail YTD Cost Center ke `NS HEADCOUNT MONTHLY`. |
 | `nsRecordSelfTest()` | **Dijalankan manual dari GAS Editor.** Verifikasi koneksi + struktur kolom tanpa lewat UI. Log jumlah record, kolom hilang, NIK duplikat, headcount per departemen. Tidak butuh hak modul. |
 
@@ -241,7 +241,7 @@ Lapisan auth dan endpoint terduplikasi secara independen sehingga aplikasi dapat
 ### 6.1 Menyalakan prepared dashboard (sekali saja)
 
 1. Pastikan akun Google pemilik script terdaftar di sheet `KARYAWAN` dan NIK-nya memiliki nilai `1` untuk keempat modul NS.
-2. Setelah `ns record.gs` ter-paste dan disimpan, pilih fungsi `nsInstallDailyDashboardRefresh_` di GAS Editor, lalu jalankan dan setujui otorisasi. Jika email owner tidak ada di KARYAWAN, buat Script Property `NS_DASHBOARD_REFRESH_NIK` berisi NIK admin terlebih dahulu.
+2. Setelah `ns record.gs` ter-paste dan disimpan, pilih fungsi `nsInstallDailyDashboardRefresh` di dropdown Run GAS Editor, lalu jalankan dan setujui otorisasi. Jika email owner tidak ada di KARYAWAN, buat Script Property `NS_DASHBOARD_REFRESH_NIK` berisi NIK admin terlebih dahulu.
 3. Fungsi tersebut membuat dua tab di spreadsheet HR DASHBOARD: `NS HEADCOUNT MONTHLY` (terlihat, audit trail YTD per Cost Center) dan `_NS_DASHBOARD_CACHE` (tersembunyi, payload UI siap-baca).
 
 Google Apps Script menargetkan pukul 01.00 Asia/Jakarta, namun clock trigger dapat berjalan sekitar ±15 menit. Setelah proses pertama selesai, tiap pagi app membaca cache yang dibuat hari itu; jika cache belum ada/terlambat, endpoint aman melakukan fallback ke perhitungan live.
