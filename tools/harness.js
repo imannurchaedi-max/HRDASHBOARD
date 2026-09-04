@@ -14,6 +14,28 @@ const REGRESSION_TODAY_ISO = '2026-07-16T12:00:00+07:00';
 const raw = JSON.parse(fs.readFileSync(path.join(HERE, 'sheet_values.json'), 'utf8'));
 const nsValues = raw.map(row => row.map(c => (c && c.__date__) ? new Date(c.__date__) : c));
 
+// Dua record deterministik untuk membuktikan Manning memakai join/exit date
+// pada akhir periode terpilih, bukan status AKTIF saat ini.
+function makeMasterFixtureRow(fields) {
+  const row = Array(nsValues[0].length).fill('');
+  Object.keys(fields).forEach(name => {
+    const index = nsValues[0].findIndex(h => String(h || '').trim().toUpperCase() === name);
+    if (index !== -1) row[index] = fields[name];
+  });
+  return row;
+}
+nsValues.push(makeMasterFixtureRow({
+  NIK: 'TIMELINE-EXIT', Nama: 'Fixture Keluar', 'JENIS KELAMIN': 'L',
+  DEPARTEMEN: 'Production', SECTION: 'Fixture', JABATAN: 'Operator', 'COST CENTER': '999001',
+  'TANGGAL MASUK': new Date('2025-10-01'), STATUS: 'NON AKTIF',
+  'TANGGAL EFEKTIF NON AKTIF': new Date('2025-12-01')
+}));
+nsValues.push(makeMasterFixtureRow({
+  NIK: 'TIMELINE-JOIN', Nama: 'Fixture Masuk', 'JENIS KELAMIN': 'L',
+  DEPARTEMEN: 'Production', SECTION: 'Fixture', JABATAN: 'Operator', 'COST CENTER': '999002',
+  'TANGGAL MASUK': new Date('2025-12-01'), STATUS: 'AKTIF'
+}));
+
 // ---- sheet KARYAWAN palsu: header A-G + 4 kolom modul, 1 user uji ----
 const karyawanValues = [
   ['NIK', 'Nama', 'Departemen', 'Jabatan', 'Otorisasi', 'Password', 'Email',
@@ -35,7 +57,11 @@ const manningValues = [
   ['IDL', '11.2025', 'DACO', 'A028', '121103', 14, 'WRH RAW MAT & PCK'],
   ['IDL', '12.2025', 'DACO', 'A028', '121101', 25, 'Engineering DAM'],
   ['DL', 122025, 'DACO', 'A028', '111102', 105, 'Diapers Production DAM'],
-  ['STAFF', '12.2025', 'DACO', 'A028', '121103', 15, 'WRH RAW MAT & PCK']
+  ['STAFF', '12.2025', 'DACO', 'A028', '121103', 15, 'WRH RAW MAT & PCK'],
+  ['STAFF', '11.2025', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
+  ['STAFF', '12.2025', 'DACO', 'A028', '999001', 0, 'Fixture Keluar'],
+  ['STAFF', '11.2025', 'DACO', 'A028', '999002', 0, 'Fixture Masuk'],
+  ['STAFF', '12.2025', 'DACO', 'A028', '999002', 0, 'Fixture Masuk']
 ];
 
 const logs = [];
@@ -143,11 +169,11 @@ check('status', res.status, 'success');
 // (audit 7 Agu 2026: semua cek struktural tetap PASS, jumlah konsisten internal).
 // Kalau fixture sengaja di-refresh dari xlsx terbaru, update angka ini dari
 // output harness yang aktual - JANGAN diubah tanpa bukti output.
-check('totalAktif', res.data.kpi.totalAktif, 459);
-check('totalNonAktif', res.data.kpi.totalNonAktif, 299);
-check('total', res.data.kpi.total, 758);
+check('totalAktif', res.data.kpi.totalAktif, 460);
+check('totalNonAktif', res.data.kpi.totalNonAktif, 300);
+check('total', res.data.kpi.total, 760);
 check('rataUsia', res.data.kpi.rataUsia, 22.9);
-check('departemen teratas', res.data.perDepartement[0].label + '=' + res.data.perDepartement[0].value, 'Production=317');
+check('departemen teratas', res.data.perDepartement[0].label + '=' + res.data.perDepartement[0].value, 'Production=318');
 check('jumlah departemen', res.data.perDepartement.length, 5);
 check('NIK duplikat terdeteksi', res.data.warnings.duplicateNiks.length, 0);
 check('kolom hilang', res.data.warnings.missingColumns.length, 0);
@@ -162,7 +188,7 @@ check('kritis <=30 hari', res.data.kpi.kritis30, 7);
 check('waspada 31-60', res.data.kpi.waspada60, 33);
 check('pantau 61-90', res.data.kpi.pantau90, 141);
 check('aman >90', res.data.kpi.aman, 276);
-check('tanpa tanggal', res.data.kpi.tanpaTanggal, 2);
+check('tanpa tanggal', res.data.kpi.tanpaTanggal, 3);
 check('lewat jatuh tempo', res.data.kpi.lewatJatuhTempo, 0);
 check('watchlist = 7+33+141', res.data.watchlist.length, 181);
 check('watchlist terurut naik', res.data.watchlist[0].sisaHariKontrak <= res.data.watchlist[1].sisaHariKontrak, 'true');
@@ -227,7 +253,7 @@ const ccEng = res.data.perCostCenter.find(r => r.costCenter === '121101');
 check('rencana Cost Center 121101 (Des 2025)', ccEng.planTotal, 25);
 check('nama Cost Center terbaca', ccEng.namaCostCenter, 'Engineering DAM');
 
-check('perTypeCostCenter jumlah baris (Des 2025)', res.data.perTypeCostCenter.length, 3);
+check('perTypeCostCenter jumlah baris (Des 2025)', res.data.perTypeCostCenter.length, 5);
 check('perTypeCostCenter urutan #1 = DL', res.data.perTypeCostCenter[0].type, 'DL');
 check('perTypeCostCenter urutan #2 = IDL', res.data.perTypeCostCenter[1].type, 'IDL');
 check('perTypeCostCenter urutan #3 = STAFF', res.data.perTypeCostCenter[2].type, 'STAFF');
@@ -236,14 +262,26 @@ check('perTypeCostCenter DL = Diapers Production DAM 105', res.data.perTypeCostC
 check('trendByType jumlah bulan', res.data.trendByType.length, 2);
 check('trendByType Nov 2025 DL', res.data.trendByType[0].byType.DL, 100);
 check('trendByType Nov 2025 IDL (23+14)', res.data.trendByType[0].byType.IDL, 37);
-check('trendByType Nov 2025 tidak ada STAFF', res.data.trendByType[0].byType.STAFF, undefined);
+check('trendByType Nov 2025 STAFF (baris rencana nol)', res.data.trendByType[0].byType.STAFF, 0);
 check('trendByType Des 2025 DL', res.data.trendByType[1].byType.DL, 105);
 check('trendByType Des 2025 IDL', res.data.trendByType[1].byType.IDL, 25);
 check('trendByType Des 2025 STAFF', res.data.trendByType[1].byType.STAFF, 15);
+check('aktual Des mengecualikan yang efektif keluar 1 Des', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 0);
+check('aktual Des memasukkan yang masuk 1 Des', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 1);
+check('as-of aktual Des adalah akhir bulan', res.data.actualAsOf.iso, '2025-12-31');
 
 res = JSON.parse(sandbox.getNsManningData('999', '2025-11'));
 check('pilih periode eksplisit (Nov 2025)', res.data.selectedPeriode.label, 'Nov 2025');
 check('total rencana Nov 2025 (23+100+14)', res.data.kpi.totalPlan, 137);
+check('aktual Nov memasukkan yang keluar Des', res.data.perCostCenter.find(r => r.costCenter === '999001').actual, 1);
+check('aktual Nov mengecualikan yang baru masuk Des', res.data.perCostCenter.find(r => r.costCenter === '999002').actual, 0);
+
+// Perubahan live pada MANNING DISTRIBUTION harus terbaca pada request berikutnya:
+// tidak boleh tertahan CacheService, karena periodeList dan Pareto memakai respons ini.
+manningValues.push(['DL', '01.2026', 'DACO', 'A028', '999003', 7, 'Fixture Periode Baru']);
+res = JSON.parse(sandbox.getNsManningData('999'));
+check('dropdown membaca periode baru tanpa cache', res.data.selectedPeriode.iso, '2026-01');
+check('Pareto membaca rencana periode baru tanpa cache', res.data.perTypeCostCenter.find(r => r.costCenter === '999003').headCount, 7);
 
 console.log('  info: cost center tanpa rencana =', res.data.warnings.costCenterTanpaRencana.join(', ') || '(tidak ada)');
 

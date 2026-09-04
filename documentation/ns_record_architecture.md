@@ -110,7 +110,7 @@ Untuk memberikan pengalaman analisis data HR yang intuitif dan cepat:
 | `getNsHeadcountData(nik)` | Panel Headcount & Demografi: KPI, per departemen/bagian/group/gender/ring/usia. |
 | `getNsContractData(nik)` | Panel Contract Watchlist: KPI bucket jatuh tempo, watchlist 90 hari terurut, breakdown masa kerja per section & jabatan (`buildContractTenureBreakdown_`). |
 | `getNsRecruitmentData(nik)` | Panel Rekrutmen: retensi per sumber, tren bulanan, referensi, domisili. |
-| `getNsManningData(nik, periodeIso)` | Panel Manning Distribution: rencana (plan) vs aktual per Cost Center & Departemen untuk periode terpilih (default: periode terbaru), plus tren rencana bulanan. Sumber rencana: sheet `MANNING DISTRIBUTION`. Sumber aktual: `nsBuildRecords_` (join lewat kolom `COST CENTER` di MASTER KARYAWAN). |
+| `getNsManningData(nik, periodeIso)` | Panel Manning Distribution: rencana (plan) vs aktual per Cost Center & Departemen untuk periode terpilih (default: periode terbaru), plus tren rencana bulanan. Sumber rencana: sheet `MANNING DISTRIBUTION`. Aktual dihitung **per akhir periode** dari `Tanggal Masuk <= akhir periode` dan `Tanggal Efektif Non Aktif > akhir periode`; join lewat kolom `COST CENTER` di MASTER KARYAWAN. Endpoint sengaja tidak memakai CacheService agar dropdown dan Pareto langsung mengikuti perubahan sheet. |
 | `nsRecordSelfTest()` | **Dijalankan manual dari GAS Editor.** Verifikasi koneksi + struktur kolom tanpa lewat UI. Log jumlah record, kolom hilang, NIK duplikat, headcount per departemen. Tidak butuh hak modul. |
 
 **Konvensi endpoint (semua 4 endpoint data):** parameter `nik` di posisi **pertama**, `return JSON.stringify(...)`, digerbangi `requireModuleAccess_`, cache `CacheService` 10 menit.
@@ -262,7 +262,7 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 
 - **Panel Turnover & Reason Keluar** — kolom AF (`Reason Keluar`) sudah dibaca tapi belum ada panel visual khusus.
 - **Drill-down profil per orang** — klik baris tabel untuk modal detail profil karyawan.
-- **Tren "per Cost Center per bulan" di panel Manning** — saat ini `trend` cuma total rencana gabungan semua Cost Center per bulan (line chart tunggal). Belum ada breakdown per-Cost-Center per-bulan (mis. multi-line, satu garis per Cost Center) walau data mentahnya (`nsBuildManningRecords_`) sudah punya kedua dimensi sekaligus. Hanya berlaku untuk sisi rencana — sisi aktual tidak punya riwayat bulanan sama sekali (MASTER KARYAWAN cuma snapshot kondisi sekarang).
+- **Tren "per Cost Center per bulan" di panel Manning** — saat ini `trend` cuma total rencana gabungan semua Cost Center per bulan (line chart tunggal). Belum ada breakdown per-Cost-Center per-bulan (mis. multi-line, satu garis per Cost Center) walau data mentahnya (`nsBuildManningRecords_`) sudah punya kedua dimensi sekaligus.
 - **Password plaintext di sheet KARYAWAN (kolom F)** — tidak bisa diperbaiki dari project ini sendirian: sheet auth dipakai bersama DAM PORTAL & EWO, mengubah isi kolom ke hash akan merusak login aplikasi lain. Perlu keputusan & migrasi lintas-aplikasi.
 
 ---
@@ -276,7 +276,7 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 - **B3**: `tglAwalKontrak` di watchlist kini dibaca dari kolom `TANGGAL AWAL KONTRAK` yang asli (fallback `tanggalMasuk` kalau kosong).
 - **B5**: kartu KPI Contract mengikuti segment switcher (dihitung dari `perBucket` payload segmen, bukan `d.kpi` yang selalu AKTIF).
 - **C5**: warning NIK duplikat kini tampil di semua panel, bukan hanya Headcount.
-- **B2**: panel Manning menampilkan peringatan eksplisit saat periode lampau dipilih — sisi Aktual tetap snapshot hari ini, angka bersifat indikatif.
+- **B2 (digantikan 4 Sep 2026)**: Aktual Manning sekarang direkonstruksi pada akhir periode terpilih memakai Tanggal Masuk dan Tanggal Efektif Non Aktif; bukan lagi snapshot hari ini. Cache server untuk Manning juga dihapus agar dropdown periode dan Pareto selalu membaca perubahan sheet terbaru.
 - **D5**: dead payload `perKeteranganKontrak` + fungsi `sortKontrak` + whitelist `cSiklus` di check_html dibuang.
 - **A2 (tidak dikerjakan, dicatat di §10)**: password plaintext sheet KARYAWAN perlu keputusan lintas-aplikasi (sheet dipakai bersama DAM PORTAL & EWO).
 
@@ -318,4 +318,3 @@ Diuji menggunakan harness Node dan validator HTML (`node tools/harness.js` dan `
 
 ### 16 Jul 2026 — Rilis awal
 - Web App mandiri NS RECORD dengan 3 modul (Headcount, Contract, Recruitment).
-

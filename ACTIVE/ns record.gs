@@ -1431,6 +1431,55 @@
     return map;
   }
 
+  // Aktual Manning harus dibaca sebagai snapshot pada AKHIR periode yang dipilih,
+  // bukan status AKTIF saat endpoint dipanggil. Ini membuat histori tetap benar:
+  // - masuk pada/ sebelum akhir periode => dihitung;
+  // - Tanggal Efektif Non Aktif pada/ sebelum akhir periode => tidak dihitung.
+  function nsEndOfPeriode_(periodeIso) {
+    const match = /^([0-9]{4})-([0-9]{2})$/.exec(nsTrim_(periodeIso));
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (!year || month < 1 || month > 12) return null;
+    return nsStartOfDay_(new Date(year, month, 0));
+  }
+
+  function nsBuildAktualManningPadaPeriode_(records, asOfDate) {
+    const aktif = [];
+    let tanpaTanggalMasuk = 0;
+    let nonAktifTanpaTanggalKeluar = 0;
+
+    records.forEach(function(r) {
+      const joinDate = nsParseDate_(r.tanggalMasuk);
+      const exitDate = nsParseDate_(r.tanggalNonAktif);
+
+      // Tanpa tanggal masuk, record tidak bisa ditempatkan ke histori periode
+      // secara jujur. Jangan diam-diam menghitungnya sebagai tenaga lampau.
+      if (!joinDate) {
+        tanpaTanggalMasuk++;
+        return;
+      }
+      if (joinDate.getTime() > asOfDate.getTime()) return;
+
+      // Tanggal efektif keluar adalah hari pertama status NON AKTIF.
+      if (exitDate && exitDate.getTime() <= asOfDate.getTime()) return;
+
+      // Fallback konservatif untuk data lama yang sudah NON AKTIF tetapi belum
+      // memiliki tanggal keluar: jangan masukkan ke headcount historis.
+      if (!exitDate && !r.isActive) {
+        nonAktifTanpaTanggalKeluar++;
+        return;
+      }
+      aktif.push(r);
+    });
+
+    return {
+      records: aktif,
+      tanpaTanggalMasuk: tanpaTanggalMasuk,
+      nonAktifTanpaTanggalKeluar: nonAktifTanpaTanggalKeluar
+    };
+  }
+
   function getNsManningData(nik, periodeIso) {
     const gate = requireModuleAccess_(nik, 'NS Manning');
     if (!gate.ok) return gate.response;
@@ -1448,15 +1497,16 @@
         ? periodeIso
         : manning.periodeList[0].iso; // periodeList terurut turun -> [0] = terbaru
 
-      const cacheKey = nsCacheKey_('manning_' + selectedIso);
-      const cached = nsCacheGet_(cacheKey);
-      if (cached) return JSON.stringify(cached);
-
       const selectedLabel = manning.periodeList.filter(function(p) { return p.iso === selectedIso; })[0].label;
+      const asOfDate = nsEndOfPeriode_(selectedIso);
+      if (!asOfDate) {
+        return JSON.stringify({ status: 'error', message: 'Periode Manning tidak valid: ' + selectedIso, data: null });
+      }
 
       const built = nsBuildRecords_();
-      const aktif = built.records.filter(function(r) { return r.isActive; });
-      const ccBagianMap = nsBuildCostCenterBagianMap_(built.records);
+      const aktualPadaPeriode = nsBuildAktualManningPadaPeriode_(built.records, asOfDate);
+      const aktif = aktualPadaPeriode.records;
+      const ccBagianMap = nsBuildCostCenterBagianMap_(aktif);
 
       const actualByCC = {};
       aktif.forEach(function(r) {
@@ -1558,6 +1608,10 @@
         data: {
           periodeList: manning.periodeList,
           selectedPeriode: { iso: selectedIso, label: selectedLabel },
+          actualAsOf: {
+            iso: nsToIsoDate_(asOfDate),
+            label: Utilities.formatDate(asOfDate, Session.getScriptTimeZone(), 'dd MMM yyyy')
+          },
           kpi: {
             totalPlan: totalPlan,
             totalActual: totalActual,
@@ -1572,11 +1626,16 @@
           warnings: {
             duplicateNiks: built.duplicateNiks,
             missingColumns: built.missingColumns,
-            costCenterTanpaRencana: unmapped
+            costCenterTanpaRencana: unmapped,
+            tanpaTanggalMasuk: aktualPadaPeriode.tanpaTanggalMasuk,
+            nonAktifTanpaTanggalKeluar: aktualPadaPeriode.nonAktifTanpaTanggalKeluar
           }
         }
       };
-      nsCachePut_(cacheKey, response);
+      // Jangan CacheService di endpoint ini. Daftar periode, Pareto, dan
+      // headcount historis harus langsung mengikuti perubahan Google Sheet;
+      // cache per-periode sebelumnya membuat Refresh/dropdown menampilkan data
+      // lama sampai TTL berakhir.
       return JSON.stringify(response);
     } catch (error) {
       return JSON.stringify({ status: 'error', message: error.toString(), data: null });
