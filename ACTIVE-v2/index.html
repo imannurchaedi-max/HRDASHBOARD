@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title><?= appTitle ?></title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <style>
+    /* Tokens disalin dari portal (0. DT SUMMARY / index.html :root) agar tampilan HR identik. */
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --card-bg-subtle: #f8fafc;
+      --border-color: #e2e8f0;
+      --border-color-hover: #cbd5e1;
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      --text-muted: #94a3b8;
+      --accent: #2563eb;
+      --primary: #1d4ed8;
+      --accent-hover: #1d4ed8;
+      --accent-light: #eff6ff;
+      --accent-border: #bfdbfe;
+      --danger: #ef4444;
+      --danger-light: #fef2f2;
+      --warning: #f59e0b;
+      --warning-light: #fffbeb;
+      --success: #10b981;
+      --success-light: #ecfdf5;
+      --card-radius: 12px;
+      --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05);
+      --card-shadow-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+      --card-shadow-elevated: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+      --kc: #0ea5e9;
+      --sidebar-w: 252px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ---------------- Layout ---------------- */
+    .app-shell { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      flex: 0 0 var(--sidebar-w);
+      background: var(--card-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--border-color); }
+    .brand-title { font-size: 15px; font-weight: 700; letter-spacing: .02em; color: var(--text-main); }
+    .brand-sub { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
+
+    .nav-section { padding: 10px 10px 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+
+    .nav-list { list-style: none; padding: 0 8px; flex: 1; overflow-y: auto; }
+    .nav-list li { margin-bottom: 2px; }
+
+    .nav-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 9px;
+      font-size: 13px; color: var(--text-sub); text-decoration: none;
+      transition: background .12s ease, color .12s ease;
+    }
+    .nav-link i { font-size: 15px; }
+    .nav-link:hover { background: var(--card-bg-subtle); color: var(--text-main); }
+    .nav-link.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+    .nav-link.disabled { opacity: .4; pointer-events: none; }
+
+    .sidebar-foot { border-top: 1px solid var(--border-color); padding: 12px 14px; }
+    .user-name { font-size: 12.5px; font-weight: 600; color: var(--text-main); }
+    .user-meta { font-size: 11px; color: var(--text-sub); }
+    .user-email { font-size: 10.5px; color: var(--text-muted); word-break: break-all; margin-top: 2px; }
+
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 12px 22px;
+      background: var(--card-bg); border-bottom: 1px solid var(--border-color);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .topbar-title { font-size: 15px; font-weight: 600; }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--border-color); background: var(--card-bg);
+      color: var(--text-main); font-family: inherit; font-size: 12.5px;
+      padding: 7px 12px; border-radius: 8px; cursor: pointer;
+      transition: border-color .12s ease, background .12s ease;
+    }
+    .btn:hover { border-color: var(--border-color-hover); background: var(--card-bg-subtle); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .content { padding: 18px 22px 40px; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .gate {
+      max-width: 620px; margin: 60px auto; background: var(--card-bg);
+      border: 1px solid var(--border-color); border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow); padding: 28px; text-align: center;
+    }
+    .gate i { font-size: 34px; color: var(--warning); }
+    .gate h2 { font-size: 16px; margin: 12px 0 6px; }
+    .gate p { font-size: 13px; color: var(--text-sub); }
+    .gate code { background: var(--card-bg-subtle); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
+
+    /* ---------------- Loader (kontrak dengan modul HR) ---------------- */
+    #loaderOverlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(248, 250, 252, .82);
+      backdrop-filter: blur(2px);
+      display: none; align-items: center; justify-content: center;
+    }
+    #loaderOverlay.show { display: flex; }
+    .loader-card {
+      width: min(420px, 88vw); background: var(--card-bg);
+      border: 1px solid var(--border-color); border-radius: 14px;
+      box-shadow: var(--card-shadow-elevated); padding: 22px 24px; text-align: center;
+    }
+    .loader-module { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+    .loader-title { font-size: 14px; font-weight: 600; margin: 6px 0 14px; }
+    .loader-track { height: 7px; border-radius: 99px; background: var(--card-bg-subtle); overflow: hidden; border: 1px solid var(--border-color); }
+    .loader-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width .25s ease; }
+    .loader-step { font-size: 11.5px; color: var(--text-sub); margin-top: 10px; min-height: 16px; }
+    .elephant-loader { animation: elePulse 1.1s ease-in-out infinite; }
+    @keyframes elePulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+
+    /* Toast sederhana */
+    #toastHost { position: fixed; right: 16px; bottom: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--text-main); color: #fff; font-size: 12.5px;
+      padding: 10px 14px; border-radius: 9px; box-shadow: var(--card-shadow-elevated);
+      max-width: 340px;
+    }
+    .toast.error { background: var(--danger); }
+    .toast.warning { background: var(--warning); }
+
+    /* ---------------- Responsif ---------------- */
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 100%; }
+      .app-shell { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: relative; flex: none; }
+      .nav-list { display: flex; flex-wrap: wrap; gap: 4px; }
+      .nav-list li { margin: 0; }
+      .content { padding: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-title">HR DASHBOARD</div>
+        <div class="brand-sub">Non Staff Record &middot; PT DAM</div>
+      </div>
+
+      <div class="nav-section">Modul HR</div>
+      <ul class="nav-list" id="navList">
+        <li>
+          <a href="javascript:void(0)" class="nav-link" id="nav-hr-headcount" data-tab="hr_headcount" data-module="NS Headcount">
+            <i class="bi bi-people-fill"></i><span>Headcount &amp; Demografi</span>
+          </a>
+        </li>
+        <li>
+          <a href="javascript:void(0)" class="nav-link" id="nav-hr-contract" data-tab="hr_contract" data-module="NS Contract">
+            <i class="bi bi-calendar-check"></i><span>Contract Watchlist</span>
+          </a>
+        </li>
+        <li>
+          <a href="javascript:void(0)" class="nav-link" id="nav-hr-recruitment" data-tab="hr_recruitment" data-module="NS Recruitment">
+            <i class="bi bi-person-plus-fill"></i><span>Rekrutmen &amp; Sourcing</span>
+          </a>
+        </li>
+        <li>
+          <a href="javascript:void(0)" class="nav-link" id="nav-hr-manning" data-tab="hr_manning" data-module="NS Manning">
+            <i class="bi bi-bar-chart-line-fill"></i><span>Manning Distribution</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-foot">
+        <div class="user-name" id="userName">&mdash;</div>
+        <div class="user-meta" id="userMeta"></div>
+        <div class="user-email" id="userEmail"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title" id="pageTitle">Memuat&hellip;</div>
+        <div class="topbar-actions">
+          <button type="button" class="btn" id="btnRefresh" disabled>
+            <i class="bi bi-arrow-clockwise"></i> Muat Ulang
+          </button>
+        </div>
+      </div>
+
+      <div class="content" id="contentArea">
+        <div id="tabHrHeadcount" class="tab-pane"><div id="hrHeadcountRoot" class="hr-scope"></div></div>
+        <div id="tabHrContract" class="tab-pane"><div id="hrContractRoot" class="hr-scope"></div></div>
+        <div id="tabHrRecruitment" class="tab-pane"><div id="hrRecruitmentRoot" class="hr-scope"></div></div>
+        <div id="tabHrManning" class="tab-pane"><div id="hrManningRoot" class="hr-scope"></div></div>
+        <div id="gateArea"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="loaderOverlay">
+    <div class="loader-card">
+      <div class="loader-module" id="loaderModule">HR DASHBOARD</div>
+      <div class="loader-title" id="loaderTitle">MEMUAT DATA...</div>
+      <div class="loader-track"><div class="loader-bar" id="loaderBar"></div></div>
+      <div class="loader-step" id="loaderStep">Menginisialisasi permintaan...</div>
+    </div>
+  </div>
+
+  <div id="toastHost"></div>
+
+  <script>
+    // =========================================================================
+    // GLOBAL YANG DIHARAPKAN MODUL HR (TrialFrontendHr.html)
+    //   currentUser        -> { nik, nama, ... }
+    //   loaderHtml_        -> string HTML loader
+    //   beginLoad_ / endLoad_ / guardLoadHandler_
+    // Semua harus global (var/function, bukan let/const di dalam IIFE).
+    // =========================================================================
+    var currentUser = null;
+
+    var NS_TABS = {
+      hr_headcount: { pane: 'tabHrHeadcount', nav: 'nav-hr-headcount', title: 'Headcount & Demografi' },
+      hr_contract: { pane: 'tabHrContract', nav: 'nav-hr-contract', title: 'Contract Watchlist' },
+      hr_recruitment: { pane: 'tabHrRecruitment', nav: 'nav-hr-recruitment', title: 'Rekrutmen & Sourcing' },
+      hr_manning: { pane: 'tabHrManning', nav: 'nav-hr-manning', title: 'Manning Distribution' }
+    };
+
+    var ACTIVE_TAB = null;
+    var ALLOWED_MODULES = {};
+
+    // -------------------------------------------------------------------------
+    // Utilitas
+    // -------------------------------------------------------------------------
+    function shellEsc_(value) {
+      return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function showToast_(message, type) {
+      var host = document.getElementById('toastHost');
+      if (!host) return;
+      var el = document.createElement('div');
+      el.className = 'toast' + (type ? ' ' + type : '');
+      el.textContent = message;
+      host.appendChild(el);
+      setTimeout(function () { el.remove(); }, 6000);
+    }
+
+    // -------------------------------------------------------------------------
+    // LOADER - kontrak sama dengan portal (TrialFrontendCore.html)
+    // -------------------------------------------------------------------------
+    var loaderState = { count: 0, pct: 0, timer: null, hideTimer: null, batch: 1, doneInBatch: 0 };
+
+    function loaderHtml_(msg, size) {
+      var s = size || 20;
+      var svg = '<svg class="elephant-loader"'
+        + ' style="width:' + s + 'px;height:' + s + 'px;"'
+        + ' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+        + '<path fill="#0ea5e9" d="M472 208c-12.7-36.9-49.8-63.5-92.4-64-3.6-14.7-11.2-28.8-22.7-41.2C325.2 68.6 273.7 48 216 48 96.7 48 0 144.7 0 264v104c0 13.3 10.7 24 24 24h32c13.3 0 24-10.7 24-24V280h24v104c0 13.3 10.7 24 24 24h32c13.3 0 24-10.7 24-24V280h24v104c0 13.3 10.7 24 24 24h32c13.3 0 24-10.7 24-24V280h24v72c0 30.9 25.1 56 56 56h32c13.3 0 24-10.7 24-24s-10.7-24-24-24h-32c-4.4 0-8-3.6-8-8v-68c37.3-6.2 65.6-38.3 65.6-76 0-14.8-4.2-28.6-11.6-40zM128 200c0-13.3 10.7-24 24-24s24 10.7 24 24-10.7 24-24 24-24-10.7-24-24z"/></svg>';
+      return '<div style="display:inline-flex;align-items:center;gap:8px;">' + svg + ' <span>' + msg + '</span></div>';
+    }
+
+    function setLoaderProgress_(pct) {
+      loaderState.pct = Math.max(0, Math.min(100, Math.round(pct)));
+      var bar = document.getElementById('loaderBar');
+      if (bar) bar.style.width = loaderState.pct + '%';
+    }
+
+    function setLoaderStep_(text) {
+      var el = document.getElementById('loaderStep');
+      if (el) el.textContent = text;
+    }
+
+    function showLoader_() {
+      var overlay = document.getElementById('loaderOverlay');
+      if (overlay) overlay.classList.add('show');
+    }
+
+    function hideLoader_() {
+      var overlay = document.getElementById('loaderOverlay');
+      if (overlay) overlay.classList.remove('show');
+    }
+
+    // Watchdog: google.script.run tidak punya timeout bawaan. Bila callback tidak
+    // pernah datang (permintaan tertahan / jaringan putus), loader akan menutupi
+    // aplikasi selamanya tanpa pesan. Timer ini melepas loader dan memberi tahu user.
+    var LOAD_WATCHDOG_MS = 60000;
+    var loadWatchdogTimer = null;
+
+    function armLoadWatchdog_() {
+      disarmLoadWatchdog_();
+      loadWatchdogTimer = setTimeout(function () {
+        loadWatchdogTimer = null;
+        loaderState.count = 0;
+        loaderState.batch = 1;
+        if (loaderState.timer) { clearInterval(loaderState.timer); loaderState.timer = null; }
+        hideLoader_();
+        setLoaderProgress_(0);
+        setLoaderStep_('');
+        showToast_('Pemuatan melebihi 60 detik dan dihentikan. Periksa koneksi lalu klik Muat Ulang.', 'warning');
+      }, LOAD_WATCHDOG_MS);
+    }
+
+    function disarmLoadWatchdog_() {
+      if (loadWatchdogTimer) { clearTimeout(loadWatchdogTimer); loadWatchdogTimer = null; }
+    }
+
+    function beginLoad_(moduleName, options) {
+      options = options || {};
+      if (loaderState.hideTimer) { clearTimeout(loaderState.hideTimer); loaderState.hideTimer = null; }
+
+      if (loaderState.count === 0) {
+        loaderState.doneInBatch = 0;
+        loaderState.batch = options.totalTasks || 1;
+        loaderState.pct = 0;
+        var modEl = document.getElementById('loaderModule');
+        if (modEl) modEl.textContent = moduleName || 'HR DASHBOARD';
+        var titleEl = document.getElementById('loaderTitle');
+        if (titleEl) titleEl.textContent = options.title || 'MEMUAT DATA...';
+        setLoaderProgress_(4);
+        showLoader_();
+      } else if (options.totalTasks) {
+        loaderState.batch += options.totalTasks;
+      }
+
+      loaderState.count++;
+
+      if (loaderState.count === 1) armLoadWatchdog_();
+
+      if (loaderState.timer) return;
+      loaderState.timer = setInterval(function () {
+        var cap = 88;
+        if (loaderState.pct < cap) setLoaderProgress_(loaderState.pct + Math.max(1, Math.round((cap - loaderState.pct) / 12)));
+        setLoaderStep_(loaderState.count > 1
+          ? 'Memuat ' + loaderState.count + ' bagian data...'
+          : 'Menghitung agregat dari spreadsheet...');
+      }, 400);
+    }
+
+    function endLoad_(isError) {
+      loaderState.count = Math.max(0, loaderState.count - 1);
+      loaderState.doneInBatch++;
+
+      if (loaderState.count > 0) {
+        setLoaderProgress_(Math.max(loaderState.pct, Math.round((loaderState.doneInBatch / Math.max(1, loaderState.batch)) * 90)));
+        return;
+      }
+
+      if (loaderState.timer) { clearInterval(loaderState.timer); loaderState.timer = null; }
+      disarmLoadWatchdog_();
+      setLoaderProgress_(100);
+      setLoaderStep_(isError ? 'Gagal memproses data.' : 'Selesai! Merender tampilan...');
+
+      loaderState.hideTimer = setTimeout(function () {
+        hideLoader_();
+        setLoaderProgress_(0);
+        setLoaderStep_('Menginisialisasi permintaan...');
+      }, 250);
+    }
+
+    function guardLoadHandler_(fn, label) {
+      return function () {
+        try {
+          return fn.apply(this, arguments);
+        } catch (err) {
+          console.error('[' + (label || 'RPC') + '] error di handler:', err);
+          endLoad_(true);
+          showToast_('Gagal menampilkan data (' + (label || 'RPC') + '): ' + ((err && err.message) ? err.message : err), 'error');
+        }
+      };
+    }
+
+    // -------------------------------------------------------------------------
+    // NAVIGASI
+    // -------------------------------------------------------------------------
+    function applyModuleGating_() {
+      var modules = (currentUser && currentUser.modules) ? currentUser.modules : [];
+      ALLOWED_MODULES = {};
+      modules.forEach(function (m) { ALLOWED_MODULES[m.name] = !!m.allowed; });
+
+      var links = document.querySelectorAll('#navList .nav-link');
+      var anyAllowed = false;
+      var firstAllowedTab = null;
+
+      Array.prototype.forEach.call(links, function (link) {
+        var moduleName = link.getAttribute('data-module');
+        var allowed = !!ALLOWED_MODULES[moduleName];
+        link.classList.toggle('disabled', !allowed);
+        link.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+        if (allowed) {
+          anyAllowed = true;
+          if (!firstAllowedTab) firstAllowedTab = link.getAttribute('data-tab');
+        }
+      });
+
+      return { anyAllowed: anyAllowed, firstAllowedTab: firstAllowedTab };
+    }
+
+    function switchTab(tabKey, options) {
+      options = options || {};
+      var cfg = NS_TABS[tabKey];
+      if (!cfg) return;
+
+      if (ACTIVE_TAB === tabKey && !options.force) {
+        return;
+      }
+
+      var panes = document.querySelectorAll('.tab-pane');
+      Array.prototype.forEach.call(panes, function (p) { p.classList.remove('active'); });
+
+      var pane = document.getElementById(cfg.pane);
+      if (pane) pane.classList.add('active');
+
+      var links = document.querySelectorAll('#navList .nav-link');
+      Array.prototype.forEach.call(links, function (l) { l.classList.remove('active'); });
+      var navEl = document.getElementById(cfg.nav);
+      if (navEl) navEl.classList.add('active');
+
+      var titleEl = document.getElementById('pageTitle');
+      if (titleEl) titleEl.textContent = cfg.title;
+
+      ACTIVE_TAB = tabKey;
+
+      var refreshBtn = document.getElementById('btnRefresh');
+      if (refreshBtn) refreshBtn.disabled = false;
+
+      if (window.TrialHrController) {
+        window.TrialHrController.loadTab(tabKey);
+      } else {
+        showToast_('Modul HR gagal dimuat (TrialHrController tidak ditemukan).', 'error');
+      }
+    }
+
+    function bindNavigation_() {
+      var links = document.querySelectorAll('#navList .nav-link');
+      Array.prototype.forEach.call(links, function (link) {
+        link.addEventListener('click', function (event) {
+          event.preventDefault();
+          if (link.classList.contains('disabled')) return;
+          switchTab(link.getAttribute('data-tab'));
+        });
+      });
+
+      var refreshBtn = document.getElementById('btnRefresh');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+          if (window.TrialHrController && typeof window.TrialHrController.refreshCurrentView === 'function') {
+            window.TrialHrController.refreshCurrentView();
+          }
+        });
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // GATE / BOOTSTRAP SESI SSO
+    // -------------------------------------------------------------------------
+    function renderGate_(title, message) {
+      var area = document.getElementById('gateArea');
+      var panes = document.querySelectorAll('.tab-pane');
+      Array.prototype.forEach.call(panes, function (p) { p.classList.remove('active'); });
+      var refreshBtn = document.getElementById('btnRefresh');
+      if (refreshBtn) refreshBtn.disabled = true;
+      if (!area) return;
+      area.innerHTML = '<div class="gate">'
+        + '<i class="bi bi-shield-exclamation"></i>'
+        + '<h2>' + shellEsc_(title) + '</h2>'
+        + '<p>' + message + '</p>'
+        + '<p style="margin-top:18px;">'
+        + '<button type="button" class="btn" onclick="location.reload()">'
+        + '<i class="bi bi-arrow-clockwise"></i> Muat Ulang</button>'
+        + '</p>'
+        + '</div>';
+    }
+
+    function renderUser_(user) {
+      var nameEl = document.getElementById('userName');
+      var metaEl = document.getElementById('userMeta');
+      var emailEl = document.getElementById('userEmail');
+      if (nameEl) nameEl.textContent = user.nama || user.nik || '-';
+      if (metaEl) metaEl.textContent = [user.jabatan, user.departemen].filter(Boolean).join(' \u00b7 ');
+      if (emailEl) emailEl.textContent = user.email || '';
+    }
+
+    function boot_() {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        renderGate_('Lingkungan Tidak Sesuai', 'Halaman ini harus dibuka dari URL deployment Google Apps Script (<code>/exec</code>), bukan dari file lokal.');
+        return;
+      }
+
+      // Watchdog bootstrap: bila RPC sesi tidak pernah menjawab, jangan biarkan
+      // layar menggantung di "Memuat...".
+      var bootSettled = false;
+      var bootTimer = setTimeout(function () {
+        if (bootSettled) return;
+        bootSettled = true;
+        renderGate_('Server Tidak Merespons',
+          'Permintaan sesi tidak dijawab dalam 30 detik. Periksa koneksi, lalu muat ulang.');
+      }, 30000);
+
+      google.script.run
+        .withSuccessHandler(function (raw) {
+          if (bootSettled) return;
+          bootSettled = true;
+          clearTimeout(bootTimer);
+
+          var res;
+          try { res = (typeof raw === 'string') ? JSON.parse(raw) : raw; } catch (e) { res = { status: 'error', message: 'Respons server tidak valid.' }; }
+
+          if (!res || res.status !== 'success' || !res.data) {
+            var gateTitle = (res && res.status === 'error') ? 'Gagal Membaca Data Sesi' : 'Akses Ditolak';
+            renderGate_(gateTitle, shellEsc_((res && res.message) || 'Identitas Anda tidak dapat diverifikasi.'));
+            return;
+          }
+
+          currentUser = res.data;
+          renderUser_(res.data);
+
+          var gating = applyModuleGating_();
+          if (!gating.anyAllowed) {
+            renderGate_('Belum Ada Modul Terbuka',
+              'Akun <code>' + shellEsc_(res.data.email || '-') + '</code> terdaftar, tetapi belum memiliki izin modul HR apa pun. '
+              + 'Minta admin mengisi nilai <code>1</code> pada kolom NS Headcount / NS Contract / NS Recruitment / NS Manning di sheet KARYAWAN.');
+            return;
+          }
+
+          switchTab(gating.firstAllowedTab);
+        })
+        .withFailureHandler(function (err) {
+          if (bootSettled) return;
+          bootSettled = true;
+          clearTimeout(bootTimer);
+          renderGate_('Gagal Memuat Sesi', shellEsc_((err && err.message) ? err.message : 'Tidak dapat menghubungi server.'));
+        })
+        .getSessionUserInfo();
+    }
+
+    // Bootstrap setelah dokumen selesai di-parse, supaya include TrialFrontendHr
+    // (yang mendefinisikan window.TrialHrController) pasti sudah dieksekusi,
+    // termasuk bila RPC menjawab sangat cepat.
+    document.addEventListener('DOMContentLoaded', function () {
+      bindNavigation_();
+      boot_();
+    });
+  </script>
+
+  <!-- Modul HR hasil porting portal (verbatim, self-contained: CSS + controller) -->
+  <?!= includeHtml_('TrialFrontendHr'); ?>
+</body>
+
+</html>

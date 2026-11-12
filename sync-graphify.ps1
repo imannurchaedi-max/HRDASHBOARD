@@ -35,15 +35,14 @@ if ($LASTEXITCODE -ne 0) {
     if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: check_html ada cek yang GAGAL" }
 }
 
-Write-Host "`n=== Step 3: GitNexus re-index ==="
-# Pakai runner lokal GitNexus supaya konsisten, lalu aktifkan/abaikan mode git
-# sesuai status folder saat ini.
-$gitArgs = @(".gitnexus/run.cjs", "analyze", "--no-stats")
+Write-Host "`n=== Step 3: GitNexus re-index (GLOBAL) ==="
+$wsRoot = Split-Path -Parent $PSScriptRoot
+$py = Join-Path $wsRoot "venv\Scripts\python.exe"
+$env:PYTHONPATH = @($wsRoot, $env:PYTHONPATH) -join [IO.Path]::PathSeparator
+$skipGit = ""
 git -C $root rev-parse --is-inside-work-tree *> $null
-if ($LASTEXITCODE -ne 0) {
-    $gitArgs += "--skip-git"
-}
-node (Join-Path $root $gitArgs[0]) $gitArgs[1..($gitArgs.Length - 1)]
+if ($LASTEXITCODE -ne 0) { $skipGit = ", '--skip-git'" }
+& $py -c "from shared_core.core_setup import run_gitnexus; run_gitnexus('analyze', '--no-stats', '--pdg'$skipGit, repo_root=r'$root')"
 if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: GitNexus analyze gagal" }
 
 Write-Host "`nSync selesai."

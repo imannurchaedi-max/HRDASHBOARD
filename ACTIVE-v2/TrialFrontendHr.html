@@ -1,0 +1,2141 @@
+<!-- =============================================================================
+     TrialFrontendHr.html - Modul HR (Non Staff Record)
+     =============================================================================
+     Menyajikan 4 sub-modul analitik HR:
+      1. Headcount & Demografi (hr_headcount)
+      2. Contract Watchlist (hr_contract)
+      3. Rekrutmen & Sourcing (hr_recruitment)
+      4. Manning Distribution (hr_manning)
+     Semua CSS discoped di dalam .hr-scope agar tidak membocorkan gaya ke modul lain.
+     ============================================================================= -->
+
+<style>
+  .hr-scope {
+    color: var(--text-main);
+  }
+
+  .hr-scope [hidden] {
+    display: none !important;
+  }
+
+  .hr-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    padding: 14px 18px;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow);
+  }
+
+  .hr-top-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hr-top-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .hr-top-title span.bar {
+    display: inline-block;
+    width: 6px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 3px;
+  }
+
+  .hr-badge-chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+  }
+
+  .hr-badge-chip.upd {
+    background: rgba(16, 185, 129, 0.1);
+    color: #047857;
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  .hr-segment-tab-group {
+    display: inline-flex;
+    background: #e2e8f0;
+    padding: 3px;
+    border-radius: 8px;
+    gap: 3px;
+  }
+
+  .hr-segment-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .hr-segment-tab-btn:hover {
+    color: var(--text-main);
+  }
+
+  .hr-segment-tab-btn.active {
+    background: #ffffff;
+    color: var(--text-main);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .hr-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .hr-kpi-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-radius);
+    padding: 16px 18px;
+    box-shadow: var(--card-shadow);
+    border-top: 3px solid var(--kc, var(--accent));
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .hr-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  .hr-kpi-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-sub);
+    margin-bottom: 6px;
+  }
+
+  .hr-kpi-value {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .hr-kpi-sub {
+    font-size: 0.72rem;
+    color: var(--text-sub);
+  }
+
+  .hr-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .hr-chart-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-radius);
+    padding: 16px 18px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .hr-panel-h {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .hr-panel-t {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .hr-panel-n {
+    font-size: 0.74rem;
+    color: var(--text-sub);
+  }
+
+  .hr-chart-frame {
+    height: 270px;
+    position: relative;
+  }
+
+  .hr-chart-frame.tall {
+    height: 360px;
+  }
+
+  /* Retensi Bars */
+  .hr-ret-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+  }
+
+  .hr-ret-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hr-ret-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .hr-ret-bar-track {
+    height: 8px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .hr-ret-bar-active {
+    background: #10b981;
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+
+  .hr-ret-bar-exit {
+    background: #ef4444;
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+
+  /* Table Watchlist */
+  .hr-table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .hr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .hr-table thead th {
+    background: #f8fafc;
+    color: var(--text-sub);
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .hr-table tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+  }
+
+  .hr-table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.04);
+  }
+
+  .hr-mono {
+    font-family: ui-monospace, Consolas, monospace;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .hr-pill {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  .hr-pill.p-crit {
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+  }
+
+  .hr-pill.p-warn {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309;
+  }
+
+  .hr-pill.p-watch {
+    background: rgba(59, 130, 246, 0.15);
+    color: #1d4ed8;
+  }
+
+  .hr-pill.p-ok {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+
+  .hr-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    color: #1e3a8a;
+  }
+
+  .hr-alert.crit {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #991b1b;
+  }
+
+  .hr-alert-title {
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  /* =========================================================================
+     SUPERVISORY ACTION BOARD (CONTRACT WATCHLIST)
+     ========================================================================= */
+  .hr-action-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    border-radius: var(--card-radius);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    margin-bottom: 20px;
+  }
+  .hr-action-banner-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 780px;
+  }
+  .hr-pulse-dot {
+    width: 12px;
+    height: 12px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    animation: hrPulse 1.8s infinite;
+  }
+  @keyframes hrPulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  }
+  .hr-action-banner-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #991b1b;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hr-action-banner-desc {
+    font-size: 0.8rem;
+    color: #7f1d1d;
+    line-height: 1.45;
+  }
+  .hr-btn-copy-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    color: #991b1b;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .hr-btn-copy-action:hover {
+    background: #fef2f2;
+    border-color: #ef4444;
+    transform: translateY(-1px);
+  }
+
+  /* Toolbar Controls */
+  .hr-action-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+    background: var(--card-bg);
+    padding: 12px 16px;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+  }
+  .hr-action-toolbar-left, .hr-action-toolbar-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hr-action-search {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.8rem;
+    min-width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .hr-action-search:focus {
+    border-color: var(--accent);
+  }
+  .hr-action-select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.8rem;
+    background: #ffffff;
+    outline: none;
+  }
+  .hr-filter-pill-btn {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    padding: 5px 11px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+  }
+  .hr-filter-pill-btn:hover {
+    border-color: #cbd5e1;
+    color: var(--text-main);
+  }
+  .hr-filter-pill-btn.active {
+    background: #1e293b;
+    color: #ffffff;
+    border-color: #1e293b;
+  }
+  .hr-filter-pill-btn.p-urgent.active {
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+  .hr-filter-pill-btn.p-eval.active {
+    background: #f59e0b;
+    border-color: #f59e0b;
+  }
+  .hr-filter-pill-btn.p-plan.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+  }
+  .hr-filter-pill-btn.p-expired.active {
+    background: #64748b;
+    border-color: #64748b;
+  }
+  .hr-view-switch-group {
+    display: inline-flex;
+    background: #e2e8f0;
+    padding: 3px;
+    border-radius: 6px;
+    gap: 3px;
+  }
+  .hr-view-switch-btn {
+    border: none;
+    background: transparent;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .hr-view-switch-btn.active {
+    background: #ffffff;
+    color: var(--text-main);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+
+  /* Kanban Board */
+  .hr-kanban-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+    align-items: start;
+  }
+  .hr-kanban-col {
+    background: rgba(248, 250, 252, 0.9);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 280px;
+  }
+  .hr-kanban-col.col-urgent { border-top: 4px solid #ef4444; }
+  .hr-kanban-col.col-eval   { border-top: 4px solid #f59e0b; }
+  .hr-kanban-col.col-plan   { border-top: 4px solid #3b82f6; }
+  .hr-kanban-col.col-expired{ border-top: 4px solid #64748b; }
+  .hr-kanban-col.col-watch  { border-top: 4px solid #94a3b8; }
+  .hr-card-countdown.cd-watch  { background: #f1f5f9; color: #475569; }
+  .hr-rec-box.rc-watch  { border-left-color: #94a3b8; background: #f8fafc; color: #475569; }
+  .hr-filter-pill-btn.p-watch.active { background: #94a3b8; border-color: #94a3b8; }
+
+  .hr-kanban-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 8px;
+  }
+  .hr-kanban-col-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hr-kanban-col-count {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+  }
+
+  .hr-kanban-cards-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 650px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .hr-action-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .hr-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+  }
+  .hr-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .hr-card-nik {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 700;
+  }
+  .hr-card-countdown {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 8px;
+  }
+  .hr-card-countdown.cd-urgent { background: #fee2e2; color: #b91c1c; }
+  .hr-card-countdown.cd-eval   { background: #fef3c7; color: #b45309; }
+  .hr-card-countdown.cd-plan   { background: #dbeafe; color: #1d4ed8; }
+  .hr-card-countdown.cd-expired{ background: #f1f5f9; color: #475569; }
+
+  .hr-card-name {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+  .hr-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .hr-tag-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+  }
+  .hr-tag-badge.mesin {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+  }
+  .hr-card-meta {
+    font-size: 0.72rem;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+  }
+  .hr-rec-box {
+    background: #f8fafc;
+    border-left: 3px solid #3b82f6;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.3;
+  }
+  .hr-rec-box.rc-urgent { border-left-color: #ef4444; background: #fff5f5; color: #991b1b; }
+  .hr-rec-box.rc-eval   { border-left-color: #f59e0b; background: #fffbeb; color: #92400e; }
+  .hr-rec-box.rc-plan   { border-left-color: #3b82f6; background: #eff6ff; color: #1e40af; }
+  .hr-rec-box.rc-expired{ border-left-color: #64748b; background: #f8fafc; color: #334155; }
+
+  /* Shortage & Manning Readiness Styles */
+  .hr-shortage-alert-banner {
+    background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 50%, #f0fdf4 100%);
+    border: 1px solid #fecdd3;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    box-shadow: 0 2px 4px rgba(225, 29, 72, 0.04);
+  }
+  .hr-shortage-banner-left {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .hr-shortage-banner-title {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: #9f1239;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hr-shortage-banner-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+  }
+  .hr-shortage-kpi-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hr-shortage-chip {
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .hr-shortage-chip.chip-critical { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .hr-shortage-chip.chip-warning  { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+  .hr-shortage-chip.chip-shortage { background: #ffe4e6; color: #e11d48; border: 1px solid #fecdd3; }
+  .hr-shortage-chip.chip-surplus  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .hr-shortage-chip.chip-score    { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+  /* Rebalancing Panel */
+  .hr-rebalancing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .hr-rebalancing-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .hr-rebalancing-card.card-deficit { border-left: 4px solid #ef4444; }
+  .hr-rebalancing-card.card-surplus { border-left: 4px solid #3b82f6; }
+  .hr-rebalancing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .hr-rebalancing-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hr-rebalancing-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #f1f5f9;
+  }
+  .hr-rebalancing-item:last-child { border-bottom: none; }
+  .hr-rebalancing-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hr-rebalancing-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .hr-rebalancing-meta {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  /* Manning Cards Grid */
+  .hr-manning-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .hr-manning-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .hr-manning-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+  }
+  .hr-manning-card.tier-critical { border-top: 4px solid #ef4444; }
+  .hr-manning-card.tier-warning  { border-top: 4px solid #f59e0b; }
+  .hr-manning-card.tier-balanced { border-top: 4px solid #10b981; }
+  .hr-manning-card.tier-surplus  { border-top: 4px solid #3b82f6; }
+  .hr-manning-card.tier-unbudgeted { border-top: 4px solid #8b5cf6; }
+
+  .hr-manning-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .hr-manning-cc {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 700;
+  }
+  .hr-manning-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  .hr-manning-badge.tier-critical { background: #fee2e2; color: #b91c1c; }
+  .hr-manning-badge.tier-warning  { background: #fef3c7; color: #b45309; }
+  .hr-manning-badge.tier-balanced { background: #dcfce7; color: #15803d; }
+  .hr-manning-badge.tier-surplus  { background: #dbeafe; color: #1d4ed8; }
+  .hr-manning-badge.tier-unbudgeted { background: #ede9fe; color: #6d28d9; }
+
+  .hr-manning-card-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.25;
+  }
+  .hr-progress-container {
+    width: 100%;
+    background: #f1f5f9;
+    height: 7px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .hr-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+  .hr-manning-stats-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+  .hr-manning-stat-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .hr-manning-stat-lbl {
+    font-size: 0.65rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .hr-manning-stat-val {
+    font-weight: 800;
+    font-size: 0.85rem;
+  }
+
+</style>
+
+<script>
+  window.TrialHrController = (function () {
+    let CHARTS = [];
+    let CACHE = { headcount: null, contract: null, recruitment: null, manning: null };
+    let CURRENT_VIEW = 'headcount';
+    let CURRENT_SEGMENT = 'aktif'; // 'aktif' | 'nonAktif' | 'all'
+    let MANNING_SELECTED_PERIODE = null;
+
+    // Filter states
+    let DRILL_BAGIAN = null;
+    let DRILL_SECTION = null;
+    let CONTRACT_FILTER = null;
+    let CONTRACT_FILTER_TYPE = null;
+    let CONTRACT_SECTION = null;
+    let CONTRACT_JABATAN = null;
+    let WATCHLIST_SORT_COL = null;
+    let WATCHLIST_SORT_DIR = 'asc';
+    let SELECTED_JOIN_VIA = null;
+    let CONTRACT_VIEW_MODE = 'kanban'; // 'kanban' | 'table'
+    let CONTRACT_TIER_FILTER = null;   // null | 'urgent' | 'eval' | 'plan' | 'expired'
+    let CONTRACT_SEARCH_QUERY = '';
+
+    // Manning Shortage filter states
+    let MANNING_STATUS_FILTER = 'ALL'; // 'ALL' | 'CRITICAL' | 'WARNING' | 'BALANCED' | 'SURPLUS'
+    let MANNING_DEPT_FILTER = 'ALL';
+    let MANNING_SEARCH_QUERY = '';
+    let MANNING_VIEW_MODE = 'cards';   // 'cards' | 'table'
+
+    const PALETTE = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'];
+
+    function destroyCharts() {
+      CHARTS.forEach(function (c) {
+        try { c.destroy(); } catch (e) { }
+      });
+      CHARTS = [];
+    }
+
+    function esc(s) {
+      return String(s === null || s === undefined ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function nf(n) {
+      if (n === null || n === undefined) return '-';
+      return Number(n).toLocaleString('id-ID');
+    }
+
+    function getTargetRoot(view) {
+      if (view === 'headcount') return document.getElementById('hrHeadcountRoot');
+      if (view === 'contract') return document.getElementById('hrContractRoot');
+      if (view === 'recruitment') return document.getElementById('hrRecruitmentRoot');
+      if (view === 'manning') return document.getElementById('hrManningRoot');
+      return null;
+    }
+
+    function parseResponse(raw) {
+      if (!raw) return { status: 'error', message: 'Response kosong dari server.' };
+      if (typeof raw === 'object') return raw;
+      try { return JSON.parse(raw); } catch (e) { return { status: 'error', message: 'Gagal parse JSON: ' + raw }; }
+    }
+
+    function loadTab(tabKey) {
+      let view = 'headcount';
+      if (tabKey === 'hr_contract') view = 'contract';
+      else if (tabKey === 'hr_recruitment') view = 'recruitment';
+      else if (tabKey === 'hr_manning') view = 'manning';
+      CURRENT_VIEW = view;
+
+      const root = getTargetRoot(view);
+      if (!root) return;
+
+      if (CACHE[view]) {
+        renderView(view, CACHE[view]);
+        return;
+      }
+
+      const moduleConfig = {
+        headcount: {
+          title: 'Headcount & Demografi',
+          loadTitle: 'MEMUAT DATA HEADCOUNT & DEMOGRAFI...',
+          steps: [
+            'Menghubungi database Master Karyawan...',
+            'Mengagregasi populasi aktif dan demografi...',
+            'Menyusun visualisasi distribusi bagian & jabatan...'
+          ]
+        },
+        contract: {
+          title: 'Contract Watchlist',
+          loadTitle: 'MEMUAT CONTRACT WATCHLIST...',
+          steps: [
+            'Membaca data masa berlaku PKWT...',
+            'Mengkalkulasi sisa hari kontrak karyawan...',
+            'Menyusun watchlist dan matriks tindakan...'
+          ]
+        },
+        recruitment: {
+          title: 'Rekrutmen & Sourcing',
+          loadTitle: 'MEMUAT REKRUTMEN & SOURCING...',
+          steps: [
+            'Menganalisis saluran rekrutmen...',
+            'Menghitung tingkat retensi per sumber...',
+            'Menyusun statistik kandidat...'
+          ]
+        },
+        manning: {
+          title: 'Manning Distribution',
+          loadTitle: 'MEMUAT MANNING DISTRIBUTION...',
+          steps: [
+            'Membaca alokasi manning plan...',
+            'Membandingkan plan vs aktual per cost center...',
+            'Menghitung gap dan rasio pemenuhan...'
+          ]
+        }
+      };
+
+      const cfg = moduleConfig[view] || {
+        title: 'Modul HR',
+        loadTitle: 'MEMUAT DATA HR...',
+        steps: ['Mengambil data...', 'Memproses statistik...', 'Menyiapkan dashboard...']
+      };
+
+      if (typeof beginLoad_ === 'function') {
+        beginLoad_(cfg.title, {
+          title: cfg.loadTitle,
+          steps: cfg.steps
+        });
+      }
+
+      root.innerHTML = '<div style="padding:60px 20px; text-align:center; color:var(--text-sub);">'
+        + (typeof loaderHtml_ === 'function' ? loaderHtml_('Memuat ' + esc(cfg.title) + '...') : 'Memuat data...')
+        + '</div>';
+
+      const nik = (currentUser && currentUser.nik) || '';
+      const fnMap = {
+        headcount: 'getNsHeadcountData',
+        contract: 'getNsContractData',
+        recruitment: 'getNsRecruitmentData',
+        manning: 'getNsManningData'
+      };
+
+      const handler = fnMap[view];
+      if (typeof google === 'undefined' || !google.script || !google.script.run || !google.script.run[handler]) {
+        if (typeof endLoad_ === 'function') endLoad_(true);
+        root.innerHTML = '<div class="hr-alert crit"><i class="bi bi-exclamation-triangle-fill"></i><div><div class="hr-alert-title">Koneksi Apps Script Tidak Tersedia</div><div>Pastikan aplikasi berjalan di lingkungan Google Apps Script.</div></div></div>';
+        return;
+      }
+
+      const req = google.script.run
+        .withSuccessHandler(guardLoadHandler_(function (raw) {
+          if (typeof endLoad_ === 'function') endLoad_();
+          const res = parseResponse(raw);
+          if (res.status !== 'success') {
+            root.innerHTML = '<div class="hr-alert crit"><i class="bi bi-exclamation-circle-fill"></i><div><div class="hr-alert-title">' + (res.status === 'forbidden' ? 'Akses Ditolak' : 'Gagal Memuat Data') + '</div><div>' + esc(res.message || 'Terjadi kesalahan.') + '</div></div></div>';
+            return;
+          }
+          CACHE[view] = res.data;
+          renderView(view, res.data);
+        }, 'loadTab'))
+        .withFailureHandler(guardLoadHandler_(function (err) {
+          if (typeof endLoad_ === 'function') endLoad_(true);
+          root.innerHTML = '<div class="hr-alert crit"><i class="bi bi-wifi-off"></i><div><div class="hr-alert-title">Gangguan Jaringan</div><div>' + esc((err && err.message) || 'Tidak dapat terhubung ke server.') + '</div></div></div>';
+        }, 'loadTab'));
+
+      if (view === 'manning') {
+        req[handler](nik, MANNING_SELECTED_PERIODE);
+      } else {
+        req[handler](nik);
+      }
+    }
+
+    function refreshCurrentView() {
+      CACHE[CURRENT_VIEW] = null;
+      loadTab('hr_' + CURRENT_VIEW);
+    }
+
+    function setSegment(mode) {
+      CURRENT_SEGMENT = mode;
+      destroyCharts();
+      if (CACHE[CURRENT_VIEW]) {
+        renderView(CURRENT_VIEW, CACHE[CURRENT_VIEW]);
+      }
+    }
+
+    function renderView(view, data) {
+      destroyCharts();
+      const root = getTargetRoot(view);
+      if (!root) return;
+
+      if (view === 'headcount') renderHeadcount(root, data);
+      else if (view === 'contract') renderContract(root, data);
+      else if (view === 'recruitment') renderRecruitment(root, data);
+      else if (view === 'manning') renderManning(root, data);
+    }
+
+    // =========================================================================
+    // CHART HELPERS
+    // =========================================================================
+    function makeBarChart(canvasId, rows, horizontal, color, isStacked, onClick) {
+      const el = document.getElementById(canvasId);
+      if (!el) return;
+
+      const labels = rows.map(r => r.label);
+      const totalData = rows.map(r => (r.total !== undefined ? r.total : (r.value || 0)));
+      const aktifData = rows.map(r => (r.aktif !== undefined ? r.aktif : (r.value || 0)));
+      const nonAktifData = rows.map(r => (r.nonAktif || 0));
+
+      const datasets = [];
+      if (isStacked) {
+        datasets.push({ label: 'Aktif', data: aktifData, backgroundColor: '#3b82f6', stack: 'counts' });
+        datasets.push({ label: 'Non-Aktif', data: nonAktifData, backgroundColor: '#94a3b8', borderRadius: 4, stack: 'counts' });
+      } else {
+        datasets.push({ label: 'Jumlah', data: totalData, backgroundColor: color || '#3b82f6', borderRadius: 4 });
+      }
+
+      const chart = new Chart(el, {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          indexAxis: horizontal ? 'y' : 'x',
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick: function (evt, elements) {
+            if (onClick && elements && elements.length > 0) {
+              const idx = elements[0].index;
+              onClick(labels[idx], idx, rows[idx]);
+            }
+          },
+          plugins: {
+            legend: { display: isStacked, position: 'top', labels: { font: { size: 10 }, boxWidth: 10 } },
+            datalabels: {
+              color: horizontal ? '#1e293b' : '#1e293b',
+              anchor: 'end',
+              align: horizontal ? 'right' : 'top',
+              font: { size: 10, weight: 700 },
+              formatter: function (v) { return v > 0 ? nf(v) : ''; }
+            },
+            tooltip: {
+              callbacks: {
+                label: function (c) { return c.dataset.label + ': ' + nf(c.parsed[horizontal ? 'x' : 'y']) + ' orang'; }
+              }
+            }
+          },
+          scales: {
+            x: { stacked: isStacked, grid: { display: horizontal }, ticks: { font: { size: 10 } } },
+            y: { stacked: isStacked, grid: { display: !horizontal, color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } }
+          }
+        },
+        plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+      });
+      CHARTS.push(chart);
+    }
+
+    function makeDonutChart(canvasId, rows) {
+      const el = document.getElementById(canvasId);
+      if (!el) return;
+
+      const chart = new Chart(el, {
+        type: 'doughnut',
+        data: {
+          labels: rows.map(r => r.label),
+          datasets: [{
+            data: rows.map(r => r.value),
+            backgroundColor: PALETTE.slice(0, rows.length),
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 10, padding: 8 } },
+            datalabels: {
+              color: '#fff',
+              font: { size: 11, weight: 700 },
+              formatter: function (v) { return nf(v); }
+            }
+          }
+        },
+        plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+      });
+      CHARTS.push(chart);
+    }
+
+    function makeLineChart(canvasId, rows) {
+      const el = document.getElementById(canvasId);
+      if (!el) return;
+
+      const chart = new Chart(el, {
+        type: 'line',
+        data: {
+          labels: rows.map(r => r.label),
+          datasets: [{
+            data: rows.map(r => r.value),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.12)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            datalabels: { display: false }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } }
+          }
+        },
+        plugins: (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : []
+      });
+      CHARTS.push(chart);
+    }
+
+    // =========================================================================
+    // 1. RENDER HEADCOUNT
+    // =========================================================================
+    function renderHeadcount(root, d) {
+      const mode = CURRENT_SEGMENT;
+      const payload = mode === 'nonAktif' ? (d.nonAktifData || d) : (mode === 'all' ? (d.allData || d) : (d.aktifData || d));
+      const k = d.kpi || {};
+      const tenure = k.rataMasaKerjaBulan === null ? '-'
+        : (Math.floor(k.rataMasaKerjaBulan / 12) + ' Thn ' + Math.round(k.rataMasaKerjaBulan % 12) + ' Bln');
+
+      let bagianTitle = 'Headcount per Bagian (Departemen)';
+      let bagianNote = 'klik batang untuk drilldown section';
+      if (DRILL_SECTION) {
+        bagianTitle = 'Jabatan / Posisi: ' + esc(DRILL_SECTION);
+        bagianNote = '<button onclick="TrialHrController.resetHeadcountDrill()" style="background:#1e293b;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:0.75rem;cursor:pointer;">&larr; Reset Drilldown</button>';
+      } else if (DRILL_BAGIAN) {
+        bagianTitle = 'Distribusi Section: ' + esc(DRILL_BAGIAN);
+        bagianNote = '<button onclick="TrialHrController.resetHeadcountDrill()" style="background:#1e293b;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:0.75rem;cursor:pointer;">&larr; Kembali</button> klik untuk lihat jabatan';
+      }
+
+      root.innerHTML = ''
+        + '<div class="hr-top-bar">'
+        + '  <div class="hr-top-title-group">'
+        + '    <h3 class="hr-top-title"><span class="bar"></span> HEADCOUNT &amp; DEMOGRAFI</h3>'
+        + '    <span class="hr-badge-chip">' + nf(k.total) + ' Total Record</span>'
+        + '    <span class="hr-badge-chip upd">' + nf(k.totalAktif) + ' Aktif</span>'
+        + '  </div>'
+        + '  <div style="display:flex; align-items:center; gap:10px;">'
+        + '    <div class="hr-segment-tab-group">'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'aktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'aktif\')"><i class="bi bi-person-check-fill" style="color:#10b981;"></i> AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'nonAktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'nonAktif\')"><i class="bi bi-person-x-fill" style="color:#ef4444;"></i> NON AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'all' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'all\')"><i class="bi bi-people-fill" style="color:#3b82f6;"></i> SEMUA</button>'
+        + '    </div>'
+        + '    <button onclick="TrialHrController.refreshCurrentView()" class="btn-refresh" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer;"><i class="bi bi-arrow-clockwise"></i> Refresh</button>'
+        + '  </div>'
+        + '</div>'
+        + '<div class="hr-kpi-grid">'
+        + '  <div class="hr-kpi-card" style="--kc:#10b981;"><div class="hr-kpi-title">Karyawan Aktif</div><div class="hr-kpi-value">' + nf(k.totalAktif) + '</div><div class="hr-kpi-sub">Populasi kerja saat ini</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#ef4444;"><div class="hr-kpi-title">Non Aktif / Keluar</div><div class="hr-kpi-value">' + nf(k.totalNonAktif) + '</div><div class="hr-kpi-sub">' + (k.total ? Math.round(k.totalNonAktif / k.total * 1000) / 10 + '%' : '-') + ' dari total</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#8b5cf6;"><div class="hr-kpi-title">Rata-rata Usia</div><div class="hr-kpi-value">' + (k.rataUsia ? String(k.rataUsia).replace('.', ',') : '-') + ' <span style="font-size:0.9rem; font-weight:600;">Thn</span></div><div class="hr-kpi-sub">Dihitung dari Tanggal Lahir</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#f59e0b;"><div class="hr-kpi-title">Rata Masa Kerja</div><div class="hr-kpi-value" style="font-size:1.35rem;">' + tenure + '</div><div class="hr-kpi-sub">Karyawan aktif</div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">' + bagianTitle + '</h4><span class="hr-panel-n">' + bagianNote + '</span></div><div class="hr-chart-frame"><canvas id="cHrBagian"></canvas></div></div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Komposisi Gender</h4><span class="hr-panel-n">Rasio L/P</span></div><div class="hr-chart-frame"><canvas id="cHrGender"></canvas></div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Top Jabatan / Posisi</h4></div><div class="hr-chart-frame"><canvas id="cHrJabatan"></canvas></div></div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Kelompok Usia</h4></div><div class="hr-chart-frame"><canvas id="cHrUsia"></canvas></div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Domisili (Ring)</h4></div><div class="hr-chart-frame"><canvas id="cHrRing"></canvas></div></div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Sebaran Masa Kerja</h4></div><div class="hr-chart-frame"><canvas id="cHrMasaKerja"></canvas></div></div>'
+        + '</div>'
+        + '<div class="hr-chart-panel" style="margin-bottom:20px;"><div class="hr-panel-h"><h4 class="hr-panel-t">Tingkat Pendidikan Terakhir</h4></div><div class="hr-chart-frame"><canvas id="cHrePendidikan"></canvas></div></div>';
+
+      const isStacked = (mode === 'all');
+      const barColor = mode === 'nonAktif' ? '#ef4444' : (mode === 'all' ? '#8b5cf6' : '#3b82f6');
+
+      let bagianRows = payload.perBagian || [];
+      if (DRILL_SECTION) {
+        const jMap = (payload.drilldown && payload.drilldown.sectionToJabatan) || {};
+        const searchSec = String(DRILL_SECTION).trim().toLowerCase();
+        const sKey = Object.keys(jMap).find(k => k.trim().toLowerCase() === searchSec);
+        bagianRows = sKey ? jMap[sKey] : [];
+      } else if (DRILL_BAGIAN) {
+        const bMap = (payload.drilldown && payload.drilldown.bagianToSection) || {};
+        const searchBag = String(DRILL_BAGIAN).trim().toLowerCase();
+        const bKey = Object.keys(bMap).find(k => k.trim().toLowerCase() === searchBag);
+        bagianRows = bKey ? bMap[bKey] : [];
+      }
+
+      makeBarChart('cHrBagian', bagianRows, false, barColor, isStacked, function (label) {
+        if (!DRILL_BAGIAN) {
+          DRILL_BAGIAN = label;
+          renderHeadcount(root, d);
+        } else if (!DRILL_SECTION) {
+          DRILL_SECTION = label;
+          renderHeadcount(root, d);
+        } else {
+          DRILL_BAGIAN = null;
+          DRILL_SECTION = null;
+          renderHeadcount(root, d);
+        }
+      });
+
+      makeDonutChart('cHrGender', (payload.perGender || []).map(g => ({
+        label: g.label === 'L' ? 'Laki-laki' : g.label === 'P' ? 'Perempuan' : g.label,
+        value: g.total || g.value
+      })));
+
+      makeBarChart('cHrJabatan', (payload.perJabatan || []).slice(0, 10), false, barColor, isStacked);
+      makeBarChart('cHrUsia', payload.perUsia || [], false, '#8b5cf6', isStacked);
+      makeBarChart('cHrRing', payload.perRing || [], false, '#10b981', isStacked);
+      makeBarChart('cHrMasaKerja', payload.perMasaKerja || [], false, '#f59e0b', isStacked);
+      makeBarChart('cHrePendidikan', payload.perPendidikan || [], false, '#ec4899', isStacked);
+    }
+
+    function resetHeadcountDrill() {
+      DRILL_BAGIAN = null;
+      DRILL_SECTION = null;
+      if (CACHE.headcount) {
+        renderHeadcount(getTargetRoot('headcount'), CACHE.headcount);
+      }
+    }
+
+    // =========================================================================
+    // 2. RENDER CONTRACT WATCHLIST
+    // =========================================================================
+    function pillClass(b) {
+      if (b === 'Lewat Jatuh Tempo' || b === '0-30 Hari' || b === 'expired' || b === 'urgent') return 'p-crit';
+      if (b === '31-60 Hari' || b === 'eval') return 'p-warn';
+      if (b === '61-90 Hari' || b === 'plan' || b === 'watch') return 'p-watch';
+      return 'p-ok';
+    }
+
+    function renderContract(root, d) {
+      const mode = CURRENT_SEGMENT;
+      const payload = mode === 'nonAktif' ? (d.nonAktifData || d) : (mode === 'all' ? (d.allData || d) : (d.aktifData || d));
+      const k = d.kpi || {};
+
+      let fullWatchlist = payload.watchlist || d.watchlist || [];
+
+      // Section options for filter
+      const sectionSet = {};
+      fullWatchlist.forEach(r => {
+        const sec = r.bagianRaw || r.bagian;
+        if (sec && sec !== '(Tidak Diketahui)') sectionSet[sec] = true;
+      });
+      const sectionOptions = Object.keys(sectionSet).sort().map(sec => {
+        return '<option value="' + esc(sec) + '"' + (CONTRACT_SECTION === sec ? ' selected' : '') + '>' + esc(sec) + '</option>';
+      }).join('');
+
+      // Counts per tier
+      const countUrgent = fullWatchlist.filter(r => r.actionTier === 'urgent' || (r.sisaHariKontrak !== null && r.sisaHariKontrak >= 0 && r.sisaHariKontrak <= 14)).length;
+      const countEval = fullWatchlist.filter(r => r.actionTier === 'eval' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 14 && r.sisaHariKontrak <= 30)).length;
+      const countPlan = fullWatchlist.filter(r => r.actionTier === 'plan' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 30 && r.sisaHariKontrak <= 60)).length;
+      const countWatch = fullWatchlist.filter(r => r.actionTier === 'watch' && r.sisaHariKontrak !== null).length;
+      const countExpired = fullWatchlist.filter(r => r.actionTier === 'expired' || (r.sisaHariKontrak !== null && r.sisaHariKontrak < 0)).length;
+
+      // Filtering
+      let watchlist = fullWatchlist.slice();
+      if (CONTRACT_TIER_FILTER) {
+        watchlist = watchlist.filter(r => {
+          if (CONTRACT_TIER_FILTER === 'urgent') return r.actionTier === 'urgent' || (r.sisaHariKontrak !== null && r.sisaHariKontrak >= 0 && r.sisaHariKontrak <= 14);
+          if (CONTRACT_TIER_FILTER === 'eval') return r.actionTier === 'eval' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 14 && r.sisaHariKontrak <= 30);
+          if (CONTRACT_TIER_FILTER === 'plan') return r.actionTier === 'plan' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 30 && r.sisaHariKontrak <= 60);
+          if (CONTRACT_TIER_FILTER === 'watch') return r.actionTier === 'watch' && r.sisaHariKontrak !== null;
+          if (CONTRACT_TIER_FILTER === 'expired') return r.actionTier === 'expired' || (r.sisaHariKontrak !== null && r.sisaHariKontrak < 0);
+          return true;
+        });
+      }
+      if (CONTRACT_FILTER) {
+        if (CONTRACT_FILTER_TYPE === 'tahun') {
+          watchlist = watchlist.filter(r => r.bucketTahunKontrak === CONTRACT_FILTER);
+        } else if (CONTRACT_FILTER_TYPE === 'bucket') {
+          watchlist = watchlist.filter(r => r.bucketKontrak === CONTRACT_FILTER);
+        }
+      }
+      if (CONTRACT_SECTION) {
+        const sec = CONTRACT_SECTION.trim().toLowerCase();
+        watchlist = watchlist.filter(r => String(r.bagianRaw || r.bagian || '').trim().toLowerCase() === sec);
+      }
+      if (CONTRACT_JABATAN) {
+        const jab = CONTRACT_JABATAN.trim().toLowerCase();
+        watchlist = watchlist.filter(r => String(r.jabatan || '').trim().toLowerCase() === jab);
+      }
+      if (CONTRACT_SEARCH_QUERY) {
+        const q = CONTRACT_SEARCH_QUERY.trim().toLowerCase();
+        watchlist = watchlist.filter(r => {
+          return (r.nama && r.nama.toLowerCase().includes(q))
+            || (r.nik && r.nik.toLowerCase().includes(q))
+            || (r.mesin && r.mesin.toLowerCase().includes(q))
+            || (r.jabatan && r.jabatan.toLowerCase().includes(q))
+            || (r.costCenter && r.costCenter.toLowerCase().includes(q));
+        });
+      }
+
+      if (WATCHLIST_SORT_COL) {
+        const dir = WATCHLIST_SORT_DIR === 'asc' ? 1 : -1;
+        watchlist = watchlist.slice().sort(function (a, b) {
+          let va = a[WATCHLIST_SORT_COL], vb = b[WATCHLIST_SORT_COL];
+          if (WATCHLIST_SORT_COL === 'sisaHariKontrak') {
+            va = Number(va) || 9999; vb = Number(vb) || 9999;
+            return (va - vb) * dir;
+          }
+          return String(va || '').localeCompare(String(vb || '')) * dir;
+        });
+      }
+
+      // Action Card Generator Helper
+      function renderActionCard(r) {
+        const tier = r.actionTier || (r.sisaHariKontrak < 0 ? 'expired' : r.sisaHariKontrak <= 14 ? 'urgent' : r.sisaHariKontrak <= 30 ? 'eval' : 'plan');
+        const cdClass = 'cd-' + tier;
+        const rcClass = 'rc-' + tier;
+        const countdownText = r.sisaHariKontrak < 0 ? ('Lewat ' + Math.abs(r.sisaHariKontrak) + ' Hari') : (r.sisaHariKontrak + ' Hari Lagi');
+        const mesinDisplay = r.mesin && r.mesin !== '-' ? r.mesin : null;
+
+        return '<div class="hr-action-card">'
+          + '  <div class="hr-card-top">'
+          + '    <span class="hr-card-nik">' + esc(r.nik) + '</span>'
+          + '    <span class="hr-card-countdown ' + cdClass + '">' + countdownText + '</span>'
+          + '  </div>'
+          + '  <div class="hr-card-name">' + esc(r.nama) + '</div>'
+          + '  <div class="hr-card-tags">'
+          + (mesinDisplay ? '    <span class="hr-tag-badge mesin"><i class="bi bi-gear-fill"></i> ' + esc(mesinDisplay) + '</span>' : '')
+          + '    <span class="hr-tag-badge">' + esc(r.bagianRaw || r.bagian) + '</span>'
+          + '    <span class="hr-tag-badge">' + esc(r.jabatan) + '</span>'
+          + '  </div>'
+          + '  <div class="hr-card-meta">'
+          + '    <span><b>Urutan:</b> ' + esc(r.keteranganKontrak || '-') + '</span>'
+          + '    <span><b>Masa Kerja:</b> ' + esc(r.masaKerjaText || '-') + '</span>'
+          + '  </div>'
+          + '  <div class="hr-rec-box ' + rcClass + '">'
+          + '    <i class="bi bi-lightbulb-fill"></i> ' + esc(r.actionRecommendation || 'Tinjau evaluasi kinerja')
+          + '  </div>'
+          + '</div>';
+      }
+
+      // Kanban Columns
+      const urgentCards = watchlist.filter(r => r.actionTier === 'urgent' || (r.sisaHariKontrak !== null && r.sisaHariKontrak >= 0 && r.sisaHariKontrak <= 14)).map(renderActionCard).join('');
+      const evalCards = watchlist.filter(r => r.actionTier === 'eval' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 14 && r.sisaHariKontrak <= 30)).map(renderActionCard).join('');
+      const planCards = watchlist.filter(r => r.actionTier === 'plan' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 30 && r.sisaHariKontrak <= 60)).map(renderActionCard).join('');
+      const watchCards = watchlist.filter(r => r.actionTier === 'watch' && r.sisaHariKontrak !== null).map(renderActionCard).join('');
+      const expiredCards = watchlist.filter(r => r.actionTier === 'expired' || (r.sisaHariKontrak !== null && r.sisaHariKontrak < 0)).map(renderActionCard).join('');
+
+      const emptyColMsg = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:0.75rem; font-style:italic;">Tidak ada karyawan di tier ini</div>';
+
+      const kanbanHtml = ''
+        + '<div class="hr-kanban-board">'
+        + '  <div class="hr-kanban-col col-urgent">'
+        + '    <div class="hr-kanban-header">'
+        + '      <div class="hr-kanban-col-title" style="color:#b91c1c;"><i class="bi bi-exclamation-octagon-fill"></i> SEGERA PUTUSKAN (&le; 14 Hari)</div>'
+        + '      <span class="hr-kanban-col-count" style="color:#b91c1c;">' + nf(countUrgent) + '</span>'
+        + '    </div>'
+        + '    <div class="hr-kanban-cards-wrapper">' + (urgentCards || emptyColMsg) + '</div>'
+        + '  </div>'
+        + '  <div class="hr-kanban-col col-eval">'
+        + '    <div class="hr-kanban-header">'
+        + '      <div class="hr-kanban-col-title" style="color:#b45309;"><i class="bi bi-clipboard-check-fill"></i> EVALUASI SHIFT (15-30 Hari)</div>'
+        + '      <span class="hr-kanban-col-count" style="color:#b45309;">' + nf(countEval) + '</span>'
+        + '    </div>'
+        + '    <div class="hr-kanban-cards-wrapper">' + (evalCards || emptyColMsg) + '</div>'
+        + '  </div>'
+        + '  <div class="hr-kanban-col col-plan">'
+        + '    <div class="hr-kanban-header">'
+        + '      <div class="hr-kanban-col-title" style="color:#1d4ed8;"><i class="bi bi-calendar2-range-fill"></i> PERENCANAAN (31-60 Hari)</div>'
+        + '      <span class="hr-kanban-col-count" style="color:#1d4ed8;">' + nf(countPlan) + '</span>'
+        + '    </div>'
+        + '    <div class="hr-kanban-cards-wrapper">' + (planCards || emptyColMsg) + '</div>'
+        + '  </div>'
+        + '  <div class="hr-kanban-col col-watch">'
+        + '    <div class="hr-kanban-header">'
+        + '      <div class="hr-kanban-col-title" style="color:#475569;"><i class="bi bi-eye-fill"></i> PANTAU (61-90 Hari)</div>'
+        + '      <span class="hr-kanban-col-count" style="color:#475569;">' + nf(countWatch) + '</span>'
+        + '    </div>'
+        + '    <div class="hr-kanban-cards-wrapper">' + (watchCards || emptyColMsg) + '</div>'
+        + '  </div>'
+        + '  <div class="hr-kanban-col col-expired">'
+        + '    <div class="hr-kanban-header">'
+        + '      <div class="hr-kanban-col-title" style="color:#475569;"><i class="bi bi-clock-history"></i> LEWAT JATUH TEMPO</div>'
+        + '      <span class="hr-kanban-col-count" style="color:#475569;">' + nf(countExpired) + '</span>'
+        + '    </div>'
+        + '    <div class="hr-kanban-cards-wrapper">' + (expiredCards || emptyColMsg) + '</div>'
+        + '  </div>'
+        + '</div>';
+
+      // Table Rows
+      const tableRows = watchlist.map(function (r) {
+        const tier = r.actionTier || (r.sisaHariKontrak < 0 ? 'expired' : r.sisaHariKontrak <= 14 ? 'urgent' : r.sisaHariKontrak <= 30 ? 'eval' : 'plan');
+        const rcClass = 'rc-' + tier;
+        return '<tr>'
+          + '<td class="hr-mono">' + esc(r.nik) + '</td>'
+          + '<td style="font-weight:700;">' + esc(r.nama) + '</td>'
+          + '<td>' + (r.mesin && r.mesin !== '-' ? '<span class="hr-tag-badge mesin"><i class="bi bi-gear-fill"></i> ' + esc(r.mesin) + '</span>' : '<span style="color:#94a3b8;">-</span>') + '</td>'
+          + '<td>' + esc(r.bagianRaw || r.bagian) + '</td>'
+          + '<td>' + esc(r.jabatan) + '</td>'
+          + '<td>' + esc(r.keteranganKontrak || '-') + '</td>'
+          + '<td>' + esc(r.tglAkhirKontrak || '-') + '</td>'
+          + '<td style="text-align:right; font-weight:800; color:' + (r.sisaHariKontrak <= 14 ? '#ef4444' : (r.sisaHariKontrak <= 30 ? '#f59e0b' : '#1e293b')) + ';">' + nf(r.sisaHariKontrak) + ' hr</td>'
+          + '<td><div class="hr-rec-box ' + rcClass + '" style="margin:0; padding:4px 8px; font-size:0.7rem;">' + esc(r.actionRecommendation || '-') + '</div></td>'
+          + '</tr>';
+      }).join('');
+
+      const tableHtml = ''
+        + '<div class="hr-chart-panel">'
+        + '  <div class="hr-table-wrapper">'
+        + '    <table class="hr-table">'
+        + '      <thead><tr>'
+        + '        <th onclick="TrialHrController.sortWatchlist(\'nik\')" style="cursor:pointer;">NIK <i class="bi bi-arrow-down-up"></i></th>'
+        + '        <th onclick="TrialHrController.sortWatchlist(\'nama\')" style="cursor:pointer;">Nama Karyawan <i class="bi bi-arrow-down-up"></i></th>'
+        + '        <th>Mesin / Lini</th>'
+        + '        <th onclick="TrialHrController.sortWatchlist(\'bagian\')" style="cursor:pointer;">Section <i class="bi bi-arrow-down-up"></i></th>'
+        + '        <th onclick="TrialHrController.sortWatchlist(\'jabatan\')" style="cursor:pointer;">Jabatan <i class="bi bi-arrow-down-up"></i></th>'
+        + '        <th>Urutan</th>'
+        + '        <th>Akhir Kontrak</th>'
+        + '        <th onclick="TrialHrController.sortWatchlist(\'sisaHariKontrak\')" style="cursor:pointer; text-align:right;">Sisa Hari <i class="bi bi-arrow-down-up"></i></th>'
+        + '        <th>Rekomendasi Tindakan Supervisi</th>'
+        + '      </tr></thead>'
+        + '      <tbody>' + (tableRows || '<tr><td colspan="9" style="text-align:center; padding:30px; color:#64748b;">Tidak ada data yang memenuhi kriteria.</td></tr>') + '</tbody>'
+        + '    </table>'
+        + '  </div>'
+        + '</div>';
+
+      // Alert Banner Logic
+      let alertBannerHtml = '';
+      if (countUrgent > 0 || countExpired > 0) {
+        alertBannerHtml = ''
+          + '<div class="hr-action-banner">'
+          + '  <div class="hr-action-banner-content">'
+          + '    <div class="hr-pulse-dot"></div>'
+          + '    <div>'
+          + '      <div class="hr-action-banner-title"><i class="bi bi-shield-exclamation"></i> PERHATIAN PENGAWAS: ' + countUrgent + ' KARYAWAN BUTUH KEPUTUSAN SEGERA (&le; 14 HARI)</div>'
+          + '      <div class="hr-action-banner-desc">'
+          + '        Terdapat ' + countUrgent + ' operator/karyawan yang masa kontraknya berakhir dalam 2 minggu ke depan' + (countExpired > 0 ? (' serta ' + countExpired + ' berstatus lewat jatuh tempo') : '') + '. '
+          + '        Segera konfirmasikan perpanjangan kontrak atau siapkan rotasi/pengganti agar lini operasional tidak defisit.'
+          + '      </div>'
+          + '    </div>'
+          + '  </div>'
+          + '  <div>'
+          + '    <button class="hr-btn-copy-action" onclick="TrialHrController.copyActionBriefing()"><i class="bi bi-whatsapp"></i> Salin Ringkasan Briefing</button>'
+          + '  </div>'
+          + '</div>';
+      }
+
+      root.innerHTML = ''
+        + '<div class="hr-top-bar">'
+        + '  <div class="hr-top-title-group">'
+        + '    <h3 class="hr-top-title"><span class="bar"></span> ACTION BOARD KONTRAK KRITIS</h3>'
+        + '    <span class="hr-badge-chip">' + nf(watchlist.length) + ' Dari ' + nf(fullWatchlist.length) + ' Karyawan</span>'
+        + '  </div>'
+        + '  <div style="display:flex; align-items:center; gap:10px;">'
+        + '    <div class="hr-segment-tab-group">'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'aktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'aktif\')">AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'nonAktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'nonAktif\')">NON AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'all' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'all\')">SEMUA</button>'
+        + '    </div>'
+        + '    <button onclick="TrialHrController.refreshCurrentView()" class="btn-refresh" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer;"><i class="bi bi-arrow-clockwise"></i> Refresh</button>'
+        + '  </div>'
+        + '</div>'
+        + alertBannerHtml
+        + '<div class="hr-kpi-grid">'
+        + '  <div class="hr-kpi-card" style="--kc:#ef4444; cursor:pointer;" onclick="TrialHrController.setContractTier(\'urgent\')">'
+        + '    <div class="hr-kpi-title">Segera Putuskan (&le; 14 Hari)</div><div class="hr-kpi-value" style="color:#b91c1c;">' + nf(countUrgent) + '</div><div class="hr-kpi-sub">Keputusan final minggu ini</div>'
+        + '  </div>'
+        + '  <div class="hr-kpi-card" style="--kc:#f59e0b; cursor:pointer;" onclick="TrialHrController.setContractTier(\'eval\')">'
+        + '    <div class="hr-kpi-title">Evaluasi Kinerja (15-30 Hari)</div><div class="hr-kpi-value" style="color:#b45309;">' + nf(countEval) + '</div><div class="hr-kpi-sub">Isi form penilaian shift leader</div>'
+        + '  </div>'
+        + '  <div class="hr-kpi-card" style="--kc:#3b82f6; cursor:pointer;" onclick="TrialHrController.setContractTier(\'plan\')">'
+        + '    <div class="hr-kpi-title">Perencanaan (31-60 Hari)</div><div class="hr-kpi-value" style="color:#1d4ed8;">' + nf(countPlan) + '</div><div class="hr-kpi-sub">Review kebutuhan manning lini</div>'
+        + '  </div>'
+        + '  <div class="hr-kpi-card" style="--kc:#64748b; cursor:pointer;" onclick="TrialHrController.setContractTier(\'expired\')">'
+        + '    <div class="hr-kpi-title">Lewat Jatuh Tempo</div><div class="hr-kpi-value" style="color:#475569;">' + nf(countExpired) + '</div><div class="hr-kpi-sub">Update status kontrak ke HR</div>'
+        + '  </div>'
+        + '</div>'
+        + '<div class="hr-action-toolbar">'
+        + '  <div class="hr-action-toolbar-left">'
+        + '    <input type="text" class="hr-action-search" placeholder="Cari NIK, Nama, Mesin, Jabatan..." value="' + esc(CONTRACT_SEARCH_QUERY) + '" oninput="TrialHrController.setContractSearch(this.value)">'
+        + '    <select class="hr-action-select" onchange="TrialHrController.setContractSection(this.value)">'
+        + '      <option value="">-- Semua Section --</option>'
+        + sectionOptions
+        + '    </select>'
+        + '    <button class="hr-filter-pill-btn ' + (CONTRACT_TIER_FILTER === null ? 'active' : '') + '" onclick="TrialHrController.setContractTier(null)">Semua Tier</button>'
+        + '    <button class="hr-filter-pill-btn p-urgent ' + (CONTRACT_TIER_FILTER === 'urgent' ? 'active' : '') + '" onclick="TrialHrController.setContractTier(\'urgent\')">&le; 14 Hari (' + countUrgent + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-eval ' + (CONTRACT_TIER_FILTER === 'eval' ? 'active' : '') + '" onclick="TrialHrController.setContractTier(\'eval\')">15-30 Hari (' + countEval + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-plan ' + (CONTRACT_TIER_FILTER === 'plan' ? 'active' : '') + '" onclick="TrialHrController.setContractTier(\'plan\')">31-60 Hari (' + countPlan + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-watch ' + (CONTRACT_TIER_FILTER === 'watch' ? 'active' : '') + '" onclick="TrialHrController.setContractTier(\'watch\')">61-90 Hari (' + countWatch + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-expired ' + (CONTRACT_TIER_FILTER === 'expired' ? 'active' : '') + '" onclick="TrialHrController.setContractTier(\'expired\')">Lewat Tempo (' + countExpired + ')</button>'
+        + (CONTRACT_FILTER || CONTRACT_SECTION || CONTRACT_SEARCH_QUERY || CONTRACT_TIER_FILTER ? '    <button onclick="TrialHrController.clearContractFilters()" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; cursor:pointer; background:#f1f5f9; border:1px solid #cbd5e1;"><i class="bi bi-x"></i> Reset</button>' : '')
+        + '  </div>'
+        + '  <div class="hr-action-toolbar-right">'
+        + '    <div class="hr-view-switch-group">'
+        + '      <button class="hr-view-switch-btn ' + (CONTRACT_VIEW_MODE === 'kanban' ? 'active' : '') + '" onclick="TrialHrController.setContractViewMode(\'kanban\')"><i class="bi bi-kanban"></i> Kanban</button>'
+        + '      <button class="hr-view-switch-btn ' + (CONTRACT_VIEW_MODE === 'table' ? 'active' : '') + '" onclick="TrialHrController.setContractViewMode(\'table\')"><i class="bi bi-table"></i> Tabel</button>'
+        + '    </div>'
+        + '  </div>'
+        + '</div>'
+        + (Number(payload.tanpaTanggalKontrak) > 0 ? '<div style="margin:0 0 12px; padding:8px 12px; border-left:3px solid #f59e0b; background:rgba(245,158,11,0.10); font-size:0.8rem;"><i class="bi bi-exclamation-triangle-fill"></i> ' + nf(Number(payload.tanpaTanggalKontrak)) + ' karyawan belum punya tanggal akhir kontrak, jadi tidak muncul di daftar pantau ini. Lengkapi datanya di sheet sumber.</div>' : '')
+        + (CONTRACT_VIEW_MODE === 'kanban' ? kanbanHtml : tableHtml)
+        + '<div class="hr-chart-panel" style="margin-top:20px;">'
+        + '  <div class="hr-panel-h"><h4 class="hr-panel-t">Sebaran Masa Kerja Kontrak (Tenure Distribution)</h4><span class="hr-panel-n">Klik batang diagram untuk memfilter daftar aksi</span></div>'
+        + '  <div class="hr-chart-frame"><canvas id="cHrTahunKontrak"></canvas></div>'
+        + '</div>';
+
+      makeBarChart('cHrTahunKontrak', payload.perTahunKontrak || d.perTahunKontrak || [], false, '#6366f1', false, function (label) {
+        if (CONTRACT_FILTER === label && CONTRACT_FILTER_TYPE === 'tahun') {
+          CONTRACT_FILTER = null;
+          CONTRACT_FILTER_TYPE = null;
+        } else {
+          CONTRACT_FILTER = label;
+          CONTRACT_FILTER_TYPE = 'tahun';
+        }
+        renderContract(root, d);
+      });
+    }
+
+    function setContractViewMode(mode) {
+      CONTRACT_VIEW_MODE = mode;
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function setContractTier(tier) {
+      CONTRACT_TIER_FILTER = (CONTRACT_TIER_FILTER === tier) ? null : tier;
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function setContractSection(sec) {
+      CONTRACT_SECTION = sec || null;
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function setContractSearch(query) {
+      CONTRACT_SEARCH_QUERY = query || '';
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function clearContractFilters() {
+      CONTRACT_FILTER = null;
+      CONTRACT_FILTER_TYPE = null;
+      CONTRACT_SECTION = null;
+      CONTRACT_JABATAN = null;
+      CONTRACT_TIER_FILTER = null;
+      CONTRACT_SEARCH_QUERY = '';
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function copyActionBriefing() {
+      if (!CACHE.contract) return;
+      const d = CACHE.contract;
+      const payload = CURRENT_SEGMENT === 'nonAktif' ? (d.nonAktifData || d) : (CURRENT_SEGMENT === 'all' ? (d.allData || d) : (d.aktifData || d));
+      const list = payload.watchlist || d.watchlist || [];
+
+      const urgent = list.filter(r => r.actionTier === 'urgent' || (r.sisaHariKontrak !== null && r.sisaHariKontrak >= 0 && r.sisaHariKontrak <= 14));
+      const evalItems = list.filter(r => r.actionTier === 'eval' || (r.sisaHariKontrak !== null && r.sisaHariKontrak > 14 && r.sisaHariKontrak <= 30));
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      let text = '🚨 *HR CONTROL TOWER - ACTION BRIEFING KONTRAK JATUH TEMPO*\n';
+      text += '📅 Per Tanggal: ' + dateStr + '\n\n';
+      text += '⚠️ *TINDAKAN SEGERA (&le; 14 HARI)* [' + urgent.length + ' Orang]:\n';
+      if (urgent.length === 0) {
+        text += '- Tidak ada karyawan kritis (Aman)\n';
+      } else {
+        urgent.forEach((r, idx) => {
+          const mesin = r.mesin && r.mesin !== '-' ? (' [Mesin: ' + r.mesin + ']') : '';
+          text += (idx + 1) + '. [' + r.nik + '] ' + r.nama + ' - ' + (r.bagianRaw || r.bagian) + mesin + '\n';
+          text += '   Sisa: ' + r.sisaHariKontrak + ' Hari | ' + (r.keteranganKontrak || 'PKWT') + '\n';
+          text += '   👉 Aksi: ' + (r.actionRecommendation || 'Konfirmasi perpanjangan/penggantian') + '\n';
+        });
+      }
+
+      text += '\n📋 *TAHAP EVALUASI PERFORMA (15-30 HARI)* [' + evalItems.length + ' Orang]:\n';
+      if (evalItems.length === 0) {
+        text += '- Tidak ada karyawan dalam tahap evaluasi\n';
+      } else {
+        evalItems.slice(0, 10).forEach((r, idx) => {
+          const mesin = r.mesin && r.mesin !== '-' ? (' [' + r.mesin + ']') : '';
+          text += (idx + 1) + '. ' + r.nama + ' (' + (r.bagianRaw || r.bagian) + mesin + ') - Sisa ' + r.sisaHariKontrak + ' Hari\n';
+        });
+        if (evalItems.length > 10) {
+          text += '... dan ' + (evalItems.length - 10) + ' orang lainnya.\n';
+        }
+      }
+
+      text += '\n_Pesan otomatis disusun dari DAM Control Tower HR Module._';
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          alert('✅ Ringkasan briefing berhasil disalin ke clipboard! Siap dipaste ke WhatsApp / Chat Section Head.');
+        }).catch(function() {
+          prompt('Salin teks briefing di bawah ini:', text);
+        });
+      } else {
+        prompt('Salin teks briefing di bawah ini:', text);
+      }
+    }
+
+    function filterContractBucket(bucket) {
+      if (CONTRACT_FILTER === bucket && CONTRACT_FILTER_TYPE === 'bucket') {
+        CONTRACT_FILTER = null;
+        CONTRACT_FILTER_TYPE = null;
+      } else {
+        CONTRACT_FILTER = bucket;
+        CONTRACT_FILTER_TYPE = 'bucket';
+      }
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    function clearContractFilter() {
+      clearContractFilters();
+    }
+
+    function sortWatchlist(col) {
+      if (WATCHLIST_SORT_COL === col) {
+        WATCHLIST_SORT_DIR = (WATCHLIST_SORT_DIR === 'asc' ? 'desc' : 'asc');
+      } else {
+        WATCHLIST_SORT_COL = col;
+        WATCHLIST_SORT_DIR = 'asc';
+      }
+      if (CACHE.contract) renderContract(getTargetRoot('contract'), CACHE.contract);
+    }
+
+    // =========================================================================
+    // 3. RENDER RECRUITMENT & SOURCING
+    // =========================================================================
+    function renderRecruitment(root, d) {
+      const mode = CURRENT_SEGMENT;
+      const payload = mode === 'nonAktif' ? (d.nonAktifData || d) : (mode === 'all' ? (d.allData || d) : (d.aktifData || d));
+      const historical = d.allData || d;
+      const retentionSources = historical.perJoinVia || d.perJoinVia || [];
+      const recruitmentTrend = historical.trenMasuk || d.trenMasuk || [];
+      const exitReasons = historical.perReasonKeluar || d.perReasonKeluar || [];
+      const k = d.kpi || {};
+
+      let refData = payload.perReferensi || d.perReferensi || [];
+      if (SELECTED_JOIN_VIA) {
+        const mapByJv = payload.referensiMapByJoinVia || d.referensiMapByJoinVia || {};
+        const key = Object.keys(mapByJv).find(k => k.trim().toUpperCase() === SELECTED_JOIN_VIA.trim().toUpperCase());
+        refData = key ? mapByJv[key] : [];
+      }
+
+      const retHtml = '<div class="hr-ret-list">' + retentionSources.map(function (s) {
+        const color = s.retensiPersen >= 65 ? '#10b981' : s.retensiPersen >= 40 ? '#f59e0b' : '#ef4444';
+        return '<div class="hr-ret-row">'
+          + '  <div class="hr-ret-meta"><span>' + esc(s.label) + '</span><span style="color:' + color + ';">' + nf(s.aktif) + ' aktif / ' + nf(s.total) + ' total (' + String(s.retensiPersen).replace('.', ',') + '%)</span></div>'
+          + '  <div class="hr-ret-bar-track">'
+          + '    <div class="hr-ret-bar-active" style="width:' + s.retensiPersen + '%;"></div>'
+          + '    <div class="hr-ret-bar-exit" style="width:' + (100 - s.retensiPersen) + '%;"></div>'
+          + '  </div>'
+          + '</div>';
+      }).join('') + '</div>';
+
+      root.innerHTML = ''
+        + '<div class="hr-top-bar">'
+        + '  <div class="hr-top-title-group">'
+        + '    <h3 class="hr-top-title"><span class="bar"></span> REKRUTMEN &amp; SOURCING</h3>'
+        + '    <span class="hr-badge-chip">' + nf(k.total) + ' Riwayat Masuk</span>'
+        + '  </div>'
+        + '  <div style="display:flex; align-items:center; gap:10px;">'
+        + '    <div class="hr-segment-tab-group">'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'aktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'aktif\')">AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'nonAktif' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'nonAktif\')">NON AKTIF</button>'
+        + '      <button class="hr-segment-tab-btn ' + (mode === 'all' ? 'active' : '') + '" onclick="TrialHrController.setSegment(\'all\')">SEMUA</button>'
+        + '    </div>'
+        + '    <button onclick="TrialHrController.refreshCurrentView()" class="btn-refresh" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer;"><i class="bi bi-arrow-clockwise"></i> Refresh</button>'
+        + '  </div>'
+        + '</div>'
+        + '<div class="hr-kpi-grid">'
+        + '  <div class="hr-kpi-card" style="--kc:#3b82f6;"><div class="hr-kpi-title">Total Karyawan Direkrut</div><div class="hr-kpi-value">' + nf(k.total) + '</div><div class="hr-kpi-sub">Seluruh riwayat</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#10b981;"><div class="hr-kpi-title">Masih Aktif</div><div class="hr-kpi-value">' + nf(k.totalAktif) + '</div><div class="hr-kpi-sub">' + (k.total ? 'Retensi ' + Math.round(k.totalAktif / k.total * 1000) / 10 + '%' : '-') + '</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#f59e0b;"><div class="hr-kpi-title">Jalur Sumber Masuk</div><div class="hr-kpi-value">' + nf(k.jumlahSumber) + '</div><div class="hr-kpi-sub">TKD, KMJ, LINK, dll.</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#8b5cf6;"><div class="hr-kpi-title">Referensi Unik</div><div class="hr-kpi-value">' + nf(k.jumlahReferensi) + '</div><div class="hr-kpi-sub">Mitra &amp; asosiasi</div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Retensi per Jalur Join</h4><span class="hr-panel-n">Hijau: Aktif | Merah: Keluar</span></div>' + retHtml + '</div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Tren Masuk per Bulan</h4></div><div class="hr-chart-frame"><canvas id="cHrTrenMasuk"></canvas></div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Sumber Masuk (Join Via)</h4><span class="hr-panel-n">Klik batang untuk memfilter referensi</span></div><div class="hr-chart-frame tall"><canvas id="cHrJoinVia"></canvas></div></div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Referensi Terbanyak</h4>' + (SELECTED_JOIN_VIA ? '<button onclick="TrialHrController.clearJoinVia()" style="padding:2px 8px; font-size:0.75rem; border-radius:6px; cursor:pointer;">Reset: ' + esc(SELECTED_JOIN_VIA) + '</button>' : '') + '</div><div class="hr-chart-frame tall"><canvas id="cHrReferensi"></canvas></div></div>'
+        + '</div>'
+        + '<div class="hr-grid-2">'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Alasan Keluar (Turnover)</h4><span class="hr-panel-n">Data karyawan non aktif</span></div><div class="hr-chart-frame tall"><canvas id="cHrReason"></canvas></div></div>'
+        + '  <div class="hr-chart-panel"><div class="hr-panel-h"><h4 class="hr-panel-t">Top Asal Kecamatan</h4><span class="hr-panel-n">Domisili tempat tinggal</span></div><div class="hr-chart-frame tall"><canvas id="cHrKecamatan"></canvas></div></div>'
+        + '</div>';
+
+      makeLineChart('cHrTrenMasuk', recruitmentTrend);
+      makeBarChart('cHrJoinVia', retentionSources.slice(0, 8), true, '#3b82f6', false, function (label) {
+        SELECTED_JOIN_VIA = (SELECTED_JOIN_VIA === label) ? null : label;
+        renderRecruitment(root, d);
+      });
+      makeBarChart('cHrReferensi', refData.slice(0, 10), true, '#8b5cf6');
+      makeBarChart('cHrReason', exitReasons.slice(0, 8), true, '#ef4444');
+      makeBarChart('cHrKecamatan', (payload.perKecamatan || d.perKecamatan || []).slice(0, 10), true, '#06b6d4');
+    }
+
+    function clearJoinVia() {
+      SELECTED_JOIN_VIA = null;
+      if (CACHE.recruitment) renderRecruitment(getTargetRoot('recruitment'), CACHE.recruitment);
+    }
+
+    // =========================================================================
+    // 4. RENDER MANNING DISTRIBUTION & SHORTAGE READINESS
+    // =========================================================================
+    function renderManning(root, d) {
+      const k = d.kpi || {};
+      const allCC = d.perCostCenter || [];
+      const periodeOptions = (d.periodeList || []).map(function (p) {
+        return '<option value="' + esc(p.iso) + '"' + (p.iso === d.selectedPeriode.iso ? ' selected' : '') + '>' + esc(p.label) + '</option>';
+      }).join('');
+
+      // Unique departments for filter
+      const deptSet = {};
+      allCC.forEach(function (r) { if (r.bagian && r.bagian !== '-') deptSet[r.bagian] = true; });
+      const deptOptions = Object.keys(deptSet).sort().map(function (b) {
+        return '<option value="' + esc(b) + '"' + (MANNING_DEPT_FILTER === b ? ' selected' : '') + '>' + esc(b) + '</option>';
+      }).join('');
+
+      // Filter CC list
+      let filteredCC = allCC.filter(function (r) {
+        if (MANNING_STATUS_FILTER !== 'ALL' && r.statusTier !== MANNING_STATUS_FILTER) return false;
+        if (MANNING_DEPT_FILTER !== 'ALL' && r.bagian !== MANNING_DEPT_FILTER) return false;
+        if (MANNING_SEARCH_QUERY) {
+          const q = MANNING_SEARCH_QUERY.toLowerCase();
+          const mesinText = (r.mesinList || []).map(function (m) { return m.name; }).join(' ').toLowerCase();
+          const match = (r.costCenter && r.costCenter.toLowerCase().includes(q))
+            || (r.namaCostCenter && r.namaCostCenter.toLowerCase().includes(q))
+            || (r.bagian && r.bagian.toLowerCase().includes(q))
+            || mesinText.includes(q);
+          if (!match) return false;
+        }
+        return true;
+      });
+
+      // Count per status
+      const countCrit = allCC.filter(function (r) { return r.statusTier === 'CRITICAL'; }).length;
+      const countWarn = allCC.filter(function (r) { return r.statusTier === 'WARNING'; }).length;
+      const countBal = allCC.filter(function (r) { return r.statusTier === 'BALANCED'; }).length;
+      const countSurp = allCC.filter(function (r) { return r.statusTier === 'SURPLUS'; }).length;
+
+      // Hero Alert Banner
+      let alertBannerHtml = '';
+      if (k.totalDeficitUnits > 0) {
+        alertBannerHtml = ''
+          + '<div class="hr-shortage-alert-banner">'
+          + '  <div class="hr-shortage-banner-left">'
+          + '    <div class="hr-shortage-banner-title"><i class="bi bi-shield-exclamation"></i> ALERT KESIAPAN MANPOWER: ' + (k.totalDeficitUnits || 0) + ' LINI DEFISIT TENAGA KERJA</div>'
+          + '    <div class="hr-shortage-banner-sub">Ditemukan kekurangan total <b>' + (k.totalShortageHeadcount || 0) + ' operator</b> pada unit produksi/operasional. Segera lakukan penyesuaian roll call atau mobilisasi bantuan shift.</div>'
+          + '    <div class="hr-shortage-kpi-chips">'
+          + '      <span class="hr-shortage-chip chip-critical"><i class="bi bi-exclamation-octagon-fill"></i> ' + (k.criticalDeficitUnits || 0) + ' Lini Kritis</span>'
+          + '      <span class="hr-shortage-chip chip-warning"><i class="bi bi-exclamation-triangle-fill"></i> ' + (k.warningDeficitUnits || 0) + ' Lini Moderat</span>'
+          + '      <span class="hr-shortage-chip chip-shortage"><i class="bi bi-person-dash-fill"></i> -' + (k.totalShortageHeadcount || 0) + ' Orang Defisit</span>'
+          + '      <span class="hr-shortage-chip chip-surplus"><i class="bi bi-person-plus-fill"></i> +' + (k.totalSurplusHeadcount || 0) + ' Surplus Cadangan</span>'
+          + '      <span class="hr-shortage-chip chip-score"><i class="bi bi-speedometer2"></i> ' + (k.readinessScore || 0) + '% Skor Kesiapan</span>'
+          + '    </div>'
+          + '  </div>'
+          + '  <div>'
+          + '    <button class="hr-btn-copy-action" onclick="TrialHrController.copyManningBriefing()"><i class="bi bi-whatsapp"></i> Salin Rekap Kesiapan Shift (WA)</button>'
+          + '  </div>'
+          + '</div>';
+      }
+
+      // Operational Rebalancing Matching Panel
+      let rebalancingHtml = '';
+      const topShort = k.topShortages || [];
+      const topSurp = k.topSurpluses || [];
+      if (topShort.length > 0 || topSurp.length > 0) {
+        const shortItems = topShort.map(function (s) {
+          const mText = (s.mesinList && s.mesinList.length > 0) ? (' • ' + s.mesinList.map(function(m){ return m.name; }).join(', ')) : '';
+          return '<div class="hr-rebalancing-item">'
+            + '  <div class="hr-rebalancing-info">'
+            + '    <span class="hr-rebalancing-name">' + esc(s.namaCostCenter) + '</span>'
+            + '    <span class="hr-rebalancing-meta">' + esc(s.costCenter) + ' (' + esc(s.bagian) + ')' + esc(mText) + '</span>'
+            + '  </div>'
+            + '  <div style="text-align:right;">'
+            + '    <span class="hr-manning-badge tier-critical">Kurang ' + Math.abs(s.gap) + ' org</span>'
+            + '    <div style="font-size:0.68rem; color:#64748b; margin-top:2px;">Plan ' + s.planTotal + ' &rarr; Akt ' + s.actual + ' (' + s.fulfillmentPercent + '%)</div>'
+            + '  </div>'
+            + '</div>';
+        }).join('');
+
+        const surpItems = topSurp.map(function (sp) {
+          return '<div class="hr-rebalancing-item">'
+            + '  <div class="hr-rebalancing-info">'
+            + '    <span class="hr-rebalancing-name">' + esc(sp.namaCostCenter) + '</span>'
+            + '    <span class="hr-rebalancing-meta">' + esc(sp.costCenter) + ' (' + esc(sp.bagian) + ')</span>'
+            + '  </div>'
+            + '  <div style="text-align:right;">'
+            + '    <span class="hr-manning-badge tier-surplus">+' + sp.gap + ' org cadangan</span>'
+            + '    <div style="font-size:0.68rem; color:#64748b; margin-top:2px;">Plan ' + sp.planTotal + ' &rarr; Akt ' + sp.actual + ' (' + sp.fulfillmentPercent + '%)</div>'
+            + '  </div>'
+            + '</div>';
+        }).join('');
+
+        rebalancingHtml = ''
+          + '<div class="hr-rebalancing-grid">'
+          + '  <div class="hr-rebalancing-card card-deficit">'
+          + '    <div class="hr-rebalancing-header">'
+          + '      <span class="hr-rebalancing-title" style="color:#b91c1c;"><i class="bi bi-arrow-down-circle-fill"></i> Lini Defisit Tertinggi (Butuh Bantuan)</span>'
+          + '      <span style="font-size:0.7rem; font-weight:800; color:#ef4444;">PRIORITAS 1</span>'
+          + '    </div>'
+          + '    <div>' + (shortItems || '<div style="color:#94a3b8; font-size:0.75rem; text-align:center; padding:15px;">Semua unit terpenuhi (Aman)</div>') + '</div>'
+          + '  </div>'
+          + '  <div class="hr-rebalancing-card card-surplus">'
+          + '    <div class="hr-rebalancing-header">'
+          + '      <span class="hr-rebalancing-title" style="color:#1d4ed8;"><i class="bi bi-arrow-up-circle-fill"></i> Unit Surplus (Sumber Bantuan Shift)</span>'
+          + '      <span style="font-size:0.7rem; font-weight:800; color:#3b82f6;">POOL BANTUAN</span>'
+          + '    </div>'
+          + '    <div>' + (surpItems || '<div style="color:#94a3b8; font-size:0.75rem; text-align:center; padding:15px;">Tidak ada unit dengan surplus manpower</div>') + '</div>'
+          + '  </div>'
+          + '</div>';
+      }
+
+      // Generate Cards
+      const cardsHtml = '<div class="hr-manning-cards-grid">' + filteredCC.map(function (r) {
+        const tier = r.statusTier || 'BALANCED';
+        const tierClass = 'tier-' + tier.toLowerCase();
+        const rcClass = tier === 'CRITICAL' ? 'rc-urgent' : (tier === 'WARNING' ? 'rc-eval' : (tier === 'SURPLUS' ? 'rc-plan' : 'rc-expired'));
+
+        let badgeLabel = 'OPTIMAL';
+        if (tier === 'CRITICAL') badgeLabel = '🚨 KRITIS (' + r.gap + ')';
+        else if (tier === 'WARNING') badgeLabel = '⚠️ DEFISIT (' + r.gap + ')';
+        else if (tier === 'SURPLUS') badgeLabel = '🔄 SURPLUS (+' + r.gap + ')';
+        else if (tier === 'UNBUDGETED') badgeLabel = 'UNBUDGETED';
+
+        const fillPct = r.fulfillmentPercent === null ? 0 : r.fulfillmentPercent;
+        const barWidth = Math.min(100, fillPct);
+        const barColor = tier === 'CRITICAL' ? '#ef4444' : (tier === 'WARNING' ? '#f59e0b' : (tier === 'SURPLUS' ? '#3b82f6' : '#10b981'));
+
+        const mesinBadges = (r.mesinList || []).map(function (m) {
+          return '<span class="hr-tag-badge mesin"><i class="bi bi-gear-fill"></i> ' + esc(m.name) + ' (' + m.count + ')</span>';
+        }).join('');
+
+        const groupBadges = (r.groupList || []).map(function (g) {
+          return '<span class="hr-tag-badge"><i class="bi bi-people-fill"></i> ' + esc(g.name) + ' (' + g.count + ')</span>';
+        }).join('');
+
+        return '<div class="hr-manning-card ' + tierClass + '">'
+          + '  <div class="hr-manning-card-top">'
+          + '    <span class="hr-manning-cc">' + esc(r.costCenter) + '</span>'
+          + '    <span class="hr-manning-badge ' + tierClass + '">' + badgeLabel + '</span>'
+          + '  </div>'
+          + '  <div class="hr-manning-card-title">' + esc(r.namaCostCenter) + '</div>'
+          + '  <div style="font-size:0.72rem; color:#64748b;"><i class="bi bi-building"></i> ' + esc(r.bagian) + '</div>'
+          + '  <div style="display:flex; flex-direction:column; gap:4px;">'
+          + '    <div style="display:flex; justify-content:space-between; font-size:0.7rem; font-weight:700;">'
+          + '      <span>Kesiapan Kuota</span>'
+          + '      <span>' + (r.fulfillmentPercent === null ? '-' : r.fulfillmentPercent + '%') + '</span>'
+          + '    </div>'
+          + '    <div class="hr-progress-container"><div class="hr-progress-bar" style="width:' + barWidth + '%; background:' + barColor + ';"></div></div>'
+          + '  </div>'
+          + '  <div class="hr-manning-stats-row">'
+          + '    <div class="hr-manning-stat-col"><span class="hr-manning-stat-lbl">Plan</span><span class="hr-manning-stat-val">' + nf(r.planTotal) + '</span></div>'
+          + '    <div class="hr-manning-stat-col"><span class="hr-manning-stat-lbl">Aktual</span><span class="hr-manning-stat-val" style="color:#3b82f6;">' + nf(r.actual) + '</span></div>'
+          + '    <div class="hr-manning-stat-col"><span class="hr-manning-stat-lbl">Selisih</span><span class="hr-manning-stat-val" style="color:' + barColor + ';">' + (r.gap > 0 ? '+' : '') + nf(r.gap) + '</span></div>'
+          + '  </div>'
+          + (mesinBadges ? '<div class="hr-card-tags">' + mesinBadges + '</div>' : '')
+          + (groupBadges ? '<div class="hr-card-tags">' + groupBadges + '</div>' : '')
+          + '  <div class="hr-rec-box ' + rcClass + '"><i class="bi bi-lightbulb-fill"></i> ' + esc(r.recommendation) + '</div>'
+          + '</div>';
+      }).join('') + '</div>';
+
+      // Generate Table
+      const tableRows = filteredCC.map(function (r) {
+        const tier = r.statusTier || 'BALANCED';
+        const tierClass = 'tier-' + tier.toLowerCase();
+        let badgeLabel = 'OPTIMAL';
+        if (tier === 'CRITICAL') badgeLabel = '🚨 KRITIS';
+        else if (tier === 'WARNING') badgeLabel = '⚠️ DEFISIT';
+        else if (tier === 'SURPLUS') badgeLabel = '🔄 SURPLUS';
+        else if (tier === 'UNBUDGETED') badgeLabel = 'UNBUDGETED';
+
+        const gapColor = r.gap < 0 ? '#ef4444' : (r.gap > 0 ? '#3b82f6' : '#10b981');
+        const mesinBadges = (r.mesinList || []).map(function (m) {
+          return '<span class="hr-tag-badge mesin" style="font-size:0.62rem;">' + esc(m.name) + ' (' + m.count + ')</span>';
+        }).join(' ');
+
+        return '<tr>'
+          + '<td><span class="hr-manning-badge ' + tierClass + '" style="font-size:0.65rem;">' + badgeLabel + '</span></td>'
+          + '<td class="hr-mono">' + esc(r.costCenter) + '</td>'
+          + '<td style="font-weight:700;">' + esc(r.namaCostCenter) + '</td>'
+          + '<td>' + esc(r.bagian) + '</td>'
+          + '<td>' + (mesinBadges || '-') + '</td>'
+          + '<td style="text-align:right; font-weight:700;">' + nf(r.planTotal) + '</td>'
+          + '<td style="text-align:right; font-weight:700; color:#3b82f6;">' + nf(r.actual) + '</td>'
+          + '<td style="text-align:right; font-weight:700; color:' + gapColor + ';">' + (r.gap > 0 ? '+' : '') + nf(r.gap) + '</td>'
+          + '<td style="text-align:right; font-weight:700;">' + (r.fulfillmentPercent === null ? '-' : r.fulfillmentPercent + '%') + '</td>'
+          + '<td style="font-size:0.72rem; color:#475569;">' + esc(r.recommendation) + '</td>'
+          + '</tr>';
+      }).join('');
+
+      const tableHtml = ''
+        + '<div class="hr-chart-panel">'
+        + '  <div class="hr-table-wrapper">'
+        + '    <table class="hr-table">'
+        + '      <thead><tr>'
+        + '        <th>Status</th>'
+        + '        <th>Cost Center</th>'
+        + '        <th>Nama Unit / Section</th>'
+        + '        <th>Departemen</th>'
+        + '        <th>Lini Mesin Aktif</th>'
+        + '        <th style="text-align:right;">Plan</th>'
+        + '        <th style="text-align:right;">Actual</th>'
+        + '        <th style="text-align:right;">Gap</th>'
+        + '        <th style="text-align:right;">Fulfillment</th>'
+        + '        <th>Rekomendasi Supervisi</th>'
+        + '      </tr></thead>'
+        + '      <tbody>' + (tableRows || '<tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">Tidak ada data Cost Center yang cocok.</td></tr>') + '</tbody>'
+        + '    </table>'
+        + '  </div>'
+        + '</div>';
+
+      root.innerHTML = ''
+        + '<div class="hr-top-bar">'
+        + '  <div class="hr-top-title-group">'
+        + '    <h3 class="hr-top-title"><span class="bar"></span> SHORTAGE & MANNING READINESS</h3>'
+        + '    <span class="hr-badge-chip">Periode: ' + esc(d.selectedPeriode.label) + '</span>'
+        + '  </div>'
+        + '  <div style="display:flex; align-items:center; gap:10px;">'
+        + '    <label style="font-size:0.8rem; font-weight:700; color:var(--text-sub);">Periode:</label>'
+        + '    <select onchange="TrialHrController.changeManningPeriode(this.value)" style="padding:6px 12px; font-size:0.82rem; border-radius:6px; border:1px solid #cbd5e1; background:#fff;">' + periodeOptions + '</select>'
+        + '    <button onclick="TrialHrController.refreshCurrentView()" class="btn-refresh" style="padding:6px 12px; font-size:0.8rem; border-radius:6px; cursor:pointer;"><i class="bi bi-arrow-clockwise"></i> Refresh</button>'
+        + '  </div>'
+        + '</div>'
+        + alertBannerHtml
+        + '<div class="hr-kpi-grid">'
+        + '  <div class="hr-kpi-card" style="--kc:#94a3b8;"><div class="hr-kpi-title">Total Rencana (Plan)</div><div class="hr-kpi-value">' + nf(k.totalPlan) + '</div><div class="hr-kpi-sub">Target alokasi tenaga kerja</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#3b82f6;"><div class="hr-kpi-title">Total Aktual</div><div class="hr-kpi-value">' + nf(k.totalActual) + '</div><div class="hr-kpi-sub">Aktual aktif per periode</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:' + (k.gap < 0 ? '#ef4444' : '#10b981') + '; cursor:pointer;" onclick="TrialHrController.setManningStatusFilter(\'CRITICAL\')"><div class="hr-kpi-title">Defisit Lini Kritis</div><div class="hr-kpi-value" style="color:#b91c1c;">' + nf(k.criticalDeficitUnits || 0) + ' <span style="font-size:0.8rem; font-weight:600;">Unit</span></div><div class="hr-kpi-sub">Total kurang ' + nf(k.totalShortageHeadcount || 0) + ' orang</div></div>'
+        + '  <div class="hr-kpi-card" style="--kc:#10b981; cursor:pointer;" onclick="TrialHrController.setManningStatusFilter(\'SURPLUS\')"><div class="hr-kpi-title">Surplus Cadangan</div><div class="hr-kpi-value" style="color:#1d4ed8;">+' + nf(k.totalSurplusHeadcount || 0) + ' <span style="font-size:0.8rem; font-weight:600;">Orang</span></div><div class="hr-kpi-sub">Di ' + nf(k.totalSurplusUnits || 0) + ' unit potensial bantu</div></div>'
+        + '</div>'
+        + rebalancingHtml
+        + '<div class="hr-action-toolbar">'
+        + '  <div class="hr-action-toolbar-left">'
+        + '    <input type="text" class="hr-action-search" placeholder="Cari Cost Center, Unit, Mesin..." value="' + esc(MANNING_SEARCH_QUERY) + '" oninput="TrialHrController.setManningSearch(this.value)">'
+        + '    <select class="hr-action-select" onchange="TrialHrController.setManningDeptFilter(this.value)">'
+        + '      <option value="ALL">-- Semua Departemen --</option>'
+        + deptOptions
+        + '    </select>'
+        + '    <button class="hr-filter-pill-btn ' + (MANNING_STATUS_FILTER === 'ALL' ? 'active' : '') + '" onclick="TrialHrController.setManningStatusFilter(\'ALL\')">Semua (' + allCC.length + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-urgent ' + (MANNING_STATUS_FILTER === 'CRITICAL' ? 'active' : '') + '" onclick="TrialHrController.setManningStatusFilter(\'CRITICAL\')">🚨 Kritis (' + countCrit + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-eval ' + (MANNING_STATUS_FILTER === 'WARNING' ? 'active' : '') + '" onclick="TrialHrController.setManningStatusFilter(\'WARNING\')">⚠️ Moderat (' + countWarn + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-plan ' + (MANNING_STATUS_FILTER === 'BALANCED' ? 'active' : '') + '" onclick="TrialHrController.setManningStatusFilter(\'BALANCED\')">✅ Sesuai (' + countBal + ')</button>'
+        + '    <button class="hr-filter-pill-btn p-expired ' + (MANNING_STATUS_FILTER === 'SURPLUS' ? 'active' : '') + '" onclick="TrialHrController.setManningStatusFilter(\'SURPLUS\')">🔄 Surplus (' + countSurp + ')</button>'
+        + (MANNING_STATUS_FILTER !== 'ALL' || MANNING_DEPT_FILTER !== 'ALL' || MANNING_SEARCH_QUERY ? '    <button onclick="TrialHrController.clearManningFilters()" style="padding:4px 10px; font-size:0.75rem; border-radius:6px; cursor:pointer; background:#f1f5f9; border:1px solid #cbd5e1;"><i class="bi bi-x"></i> Reset</button>' : '')
+        + '  </div>'
+        + '  <div class="hr-action-toolbar-right">'
+        + '    <div class="hr-view-switch-group">'
+        + '      <button class="hr-view-switch-btn ' + (MANNING_VIEW_MODE === 'cards' ? 'active' : '') + '" onclick="TrialHrController.setManningViewMode(\'cards\')"><i class="bi bi-grid-fill"></i> Kartu Kesiapan</button>'
+        + '      <button class="hr-view-switch-btn ' + (MANNING_VIEW_MODE === 'table' ? 'active' : '') + '" onclick="TrialHrController.setManningViewMode(\'table\')"><i class="bi bi-table"></i> Tabel</button>'
+        + '    </div>'
+        + '  </div>'
+        + '</div>'
+        + (MANNING_VIEW_MODE === 'cards' ? cardsHtml : tableHtml)
+        + '<div class="hr-chart-panel" style="margin-top:20px;">'
+        + '  <div class="hr-panel-h"><h4 class="hr-panel-t">Tren Rencana Headcount Bulanan YTD</h4></div>'
+        + '  <div class="hr-chart-frame"><canvas id="cHrManningTrend"></canvas></div>'
+        + '</div>';
+
+      makeLineChart('cHrManningTrend', (d.trend || []).map(t => ({ label: t.label, value: t.planTotal })));
+    }
+
+    function changeManningPeriode(iso) {
+      MANNING_SELECTED_PERIODE = iso;
+      CACHE.manning = null;
+      loadTab('hr_manning');
+    }
+
+    function setManningStatusFilter(status) {
+      MANNING_STATUS_FILTER = (MANNING_STATUS_FILTER === status && status !== 'ALL') ? 'ALL' : status;
+      if (CACHE.manning) renderManning(getTargetRoot('manning'), CACHE.manning.data || CACHE.manning);
+    }
+
+    function setManningDeptFilter(dept) {
+      MANNING_DEPT_FILTER = dept || 'ALL';
+      if (CACHE.manning) renderManning(getTargetRoot('manning'), CACHE.manning.data || CACHE.manning);
+    }
+
+    function setManningSearch(val) {
+      MANNING_SEARCH_QUERY = val || '';
+      if (CACHE.manning) renderManning(getTargetRoot('manning'), CACHE.manning.data || CACHE.manning);
+    }
+
+    function setManningViewMode(mode) {
+      MANNING_VIEW_MODE = mode;
+      if (CACHE.manning) renderManning(getTargetRoot('manning'), CACHE.manning.data || CACHE.manning);
+    }
+
+    function clearManningFilters() {
+      MANNING_STATUS_FILTER = 'ALL';
+      MANNING_DEPT_FILTER = 'ALL';
+      MANNING_SEARCH_QUERY = '';
+      if (CACHE.manning) renderManning(getTargetRoot('manning'), CACHE.manning.data || CACHE.manning);
+    }
+
+    function copyManningBriefing() {
+      if (!CACHE.manning) return;
+      const d = CACHE.manning.data || CACHE.manning;
+      const k = d.kpi || {};
+      const allCC = d.perCostCenter || [];
+      const periodeLabel = (d.selectedPeriode && d.selectedPeriode.label) || '-';
+      const asOfLabel = (d.actualAsOf && d.actualAsOf.label) || '-';
+
+      const critList = allCC.filter(function (r) { return r.statusTier === 'CRITICAL'; });
+      const warnList = allCC.filter(function (r) { return r.statusTier === 'WARNING'; });
+      const surpList = allCC.filter(function (r) { return r.statusTier === 'SURPLUS'; });
+
+      let text = '📢 *HR CONTROL TOWER - REKAP KESIAPAN MANPOWER & SHORTAGE LINI*\n';
+      text += '📅 Periode: ' + periodeLabel + ' | As of: ' + asOfLabel + '\n\n';
+      text += '📊 *STATUS KESIAPAN OPERASIONAL:*\n';
+      text += '• Total Kebutuhan Plan : ' + nf(k.totalPlan) + ' Orang\n';
+      text += '• Total Aktual Terisi   : ' + nf(k.totalActual) + ' Orang\n';
+      text += '• Skor Pemenuhan (YTD)  : ' + (k.fulfillmentPercent !== null ? k.fulfillmentPercent + '%' : '-') + '\n';
+      text += '• Defisit Headcount     : -' + nf(k.totalShortageHeadcount || 0) + ' Orang (di ' + nf(k.totalDeficitUnits || 0) + ' Unit)\n';
+      text += '• Surplus Cadangan      : +' + nf(k.totalSurplusHeadcount || 0) + ' Orang (di ' + nf(k.totalSurplusUnits || 0) + ' Unit)\n\n';
+
+      text += '🚨 *LINI DEFISIT KRITIS (< 85% / >= 3 Orang)* [' + critList.length + ' Unit]:\n';
+      if (critList.length === 0) {
+        text += '- Seluruh lini operasi aman (Tidak ada defisit kritis)\n';
+      } else {
+        critList.forEach(function (r, idx) {
+          const mesinStr = (r.mesinList && r.mesinList.length > 0) ? (' [Mesin: ' + r.mesinList.map(function(m){ return m.name; }).join(', ') + ']') : '';
+          text += (idx + 1) + '. *' + r.namaCostCenter + '* (' + r.costCenter + ')' + mesinStr + '\n';
+          text += '   Target: ' + r.planTotal + ' | Aktual: ' + r.actual + ' | ⚠️ *Kurang ' + Math.abs(r.gap) + ' Orang* (' + r.fulfillmentPercent + '%)\n';
+          text += '   👉 Aksi: ' + r.recommendation + '\n';
+        });
+      }
+
+      if (warnList.length > 0) {
+        text += '\n⚠️ *LINI DEFISIT MODERAT* [' + warnList.length + ' Unit]:\n';
+        warnList.slice(0, 5).forEach(function (r, idx) {
+          text += (idx + 1) + '. ' + r.namaCostCenter + ' (' + r.costCenter + ') - Kurang ' + Math.abs(r.gap) + ' Orang (Akt ' + r.actual + '/' + r.planTotal + ')\n';
+        });
+        if (warnList.length > 5) text += '... dan ' + (warnList.length - 5) + ' unit lainnya.\n';
+      }
+
+      if (surpList.length > 0) {
+        text += '\n🔄 *UNIT SURPLUS (POTENSI BANTUAN/CROSS-SHIFT)* [' + surpList.length + ' Unit]:\n';
+        surpList.slice(0, 5).forEach(function (r, idx) {
+          text += (idx + 1) + '. ' + r.namaCostCenter + ': +' + r.gap + ' Orang Cadangan (Akt ' + r.actual + '/' + r.planTotal + ')\n';
+        });
+      }
+
+      text += '\n_Pesan otomatis disusun dari DAM Control Tower HR Operations._';
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          alert('✅ Rekap kesiapan shift & shortage lini berhasil disalin ke clipboard! Siap dipaste ke WhatsApp.');
+        }).catch(function() {
+          prompt('Salin teks briefing di bawah ini:', text);
+        });
+      } else {
+        prompt('Salin teks briefing di bawah ini:', text);
+      }
+    }
+
+    return {
+      loadTab: loadTab,
+      refreshCurrentView: refreshCurrentView,
+      setSegment: setSegment,
+      resetHeadcountDrill: resetHeadcountDrill,
+      filterContractBucket: filterContractBucket,
+      clearContractFilter: clearContractFilter,
+      clearContractFilters: clearContractFilters,
+      setContractViewMode: setContractViewMode,
+      setContractTier: setContractTier,
+      setContractSection: setContractSection,
+      setContractSearch: setContractSearch,
+      copyActionBriefing: copyActionBriefing,
+      sortWatchlist: sortWatchlist,
+      clearJoinVia: clearJoinVia,
+      changeManningPeriode: changeManningPeriode,
+      setManningStatusFilter: setManningStatusFilter,
+      setManningDeptFilter: setManningDeptFilter,
+      setManningSearch: setManningSearch,
+      setManningViewMode: setManningViewMode,
+      clearManningFilters: clearManningFilters,
+      copyManningBriefing: copyManningBriefing
+    };
+  })();
+</script>
