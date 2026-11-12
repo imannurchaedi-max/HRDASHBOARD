@@ -225,3 +225,11 @@ Baseline md5 pada 12 Nov 2026, sebelum `ACTIVE-v2/` dibuat:
 - Repo ini **punya remote GitHub** (`imannurchaedi-max/HRDASHBOARD`). Salinan lokal sempat kehilangan `.git` dan sudah disambungkan ulang 12 Nov 2026 (commit `5fbd562`). Commit tiap perubahan; `REF/` & `tools/sheet_values.json` di-ignore karena PII.
 - Nama file `ns domain.gs` memakai spasi; aman untuk upload manual, ganti jadi
   `ns_domain.gs` bila kelak memakai `clasp`.
+
+## 9. Porting balik ke DT SUMMARY
+
+Bila kelak portal dihidupkan lagi, prosedur lengkapnya ada di
+[`PORTING-BALIK.md`](PORTING-BALIK.md): pemetaan berkas, langkah `cp`, dependensi
+yang harus diporting dulu (`nsAssertAdmin_`, `getHrSpreadsheetId_`), perbedaan
+model auth portal, gerbang `npm test`/`detect:changes`, dan jebakan yang sudah
+diketahui. Arahnya satu arah: dari sini ke portal, bukan sebaliknya.
