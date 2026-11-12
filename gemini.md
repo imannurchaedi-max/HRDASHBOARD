@@ -21,7 +21,21 @@ Prinsip: **pintar** (fakta/docs, bukan tebak) -> **teliti** (TDD + impact analys
 
 ## Konteks project (diperbarui 12 Nov 2026)
 
-- **`ACTIVE/`** = aplikasi standalone lama (3 file: `ShellWebApp.gs`, `ns record.gs`, `index.html`). Deploy: paste 3 file, lalu URL `/exec` dimasukkan ke `CONFIG!A2`.
+### Perpindahan `ACTIVE/` -> `ACTIVE-v2/` (12 Nov 2026)
+
+Semua kode kerja pindah ke `ACTIVE-v2/`. `ACTIVE/` (Sep 2026) **dibekukan** - jangan diedit, jangan dideploy ulang.
+
+| Lama (`ACTIVE/`) | Baru (`ACTIVE-v2/`) |
+|---|---|
+| `ns record.gs` (1.897 baris: `doGet`, login NIK/password + SSO, sesi, throttle, 4 endpoint, cache, scheduler) | dipecah: `ns domain.gs` (logika HR) + `ns record.gs` (auth SSO, cache izin, gerbang admin, `doGet`) + `appsscript.json` |
+| `index.html` (2.443 baris: shell + login + UI 4 modul) | `index.html` (shell 586 baris) + `TrialFrontendHr.html` (UI HR 2.141 baris) |
+| `ShellWebApp.gs` (redirector `CONFIG!A2`) | dibuang - `doGet` langsung |
+| Login NIK/password + throttle 5x/15 mnt | dihapus - SSO `Session.getActiveUser()` |
+| `tools/harness.js`, `tools/check_html.js` | tidak berubah - tetap menguji `ACTIVE/` |
+| - | `tools/verify-v2.cjs` (47 cek) menguji `ACTIVE-v2/` |
+
+Aturan: perubahan HR baru **hanya di `ACTIVE-v2/`**; jangan menyalin file utuh dari `ACTIVE/` (auth lamanya bertentangan dengan SSO); fitur lama diporting manual lalu tambah cek di `tools/verify-v2.cjs`.
+
 - **DECISION-002 (12 Nov 2026): `ACTIVE-v2/` adalah KODE KERJA AKTIF.** Development modul HR lanjut **di sini**; **DT SUMMARY diparkir** - jangan mengembangkan modul HR di sana. `ACTIVE/` (Sep 2026) = arsip beku. Deploy `ACTIVE-v2/` **belum** dilakukan; menunggu keputusan model akses data (`ACTIVE-v2/DECISION-002.md`).
 - **`ACTIVE-v2/`** = modul HR hasil **extract balik** dari portal (paritas rilis 8 Nov 2026, terverifikasi: frontend md5 identik, 68 fungsi backend sama). Sejak DECISION-002 **boleh dikembangkan langsung** - tidak ada lagi salinan ulang dari portal. `ns domain.gs` memuat **4 patch keamanan permanen** (didaftar di header file; cek `grep -c "PATCH P[0-9]" "ns domain.gs"` -> 3) yang tidak boleh hilang.
 - **Auth `ACTIVE-v2/`**: SSO saja (login NIK/password dihapus), manifest `executeAs: USER_ACCESSING`. `Session.getActiveUser()` = user yang mengakses, bisa KOSONG bila tidak ada user aktif (mis. trigger); `getEffectiveUser()` = akun yang otoritasnya dipakai. Klaim "USER_DEPLOYING membuat semua pengunjung terbaca sebagai pemilik" TIDAK benar sebagai aturan umum. Konsekuensi USER_ACCESSING: user butuh akses baca ke 2 spreadsheet, jadi gerbang modul bersifat **tingkat-API, bukan isolasi data**. Baca `ACTIVE-v2/README-DEPLOY.md` bagian 4 sebelum deploy.

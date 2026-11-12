@@ -75,6 +75,29 @@ This project is indexed by GitNexus as **0. HR DASHBAORD**.
 
 Repo ini punya remote GitHub: **https://github.com/imannurchaedi-max/HRDASHBOARD** (branch `main`). Klaim "SUDAH git" benar. **Koreksi 12 Nov 2026:** salinan lokal sempat kehilangan folder `.git` (kemungkinan karena sync) dan sudah disambungkan ulang ke commit `5fbd562`. Karena folder ini kini **kode kerja aktif** (DECISION-002): jalankan `git pull` sebelum mulai, commit tiap perubahan, dan JANGAN pernah commit `REF/` atau `tools/sheet_values.json` (PII — sudah di-`.gitignore`).
 
+## Perpindahan ACTIVE/ → ACTIVE-v2/ (12 Nov 2026)
+
+Semua kode kerja pindah dari `ACTIVE/` (Sep 2026) ke `ACTIVE-v2/`. `ACTIVE/` **dibekukan**.
+Pemetaannya:
+
+| Lama (`ACTIVE/`) | Baru (`ACTIVE-v2/`) | Status |
+|---|---|---|
+| `ns record.gs` 1.897 baris: `doGet`, login NIK/password + SSO, sesi, throttle, 4 endpoint HR, cache, scheduler | dipecah: `ns domain.gs` (logika HR, dari portal) + `ns record.gs` (auth SSO, cache izin, gerbang admin, `doGet`) + `appsscript.json` (manifest) | dipindah & dipecah |
+| `index.html` 2.443 baris (shell + login + UI 4 modul) | `index.html` (shell 586 baris: nav, tema, loader, bootstrap) + `TrialFrontendHr.html` (UI HR 2.141 baris dari portal) | dipindah & dipecah |
+| `ShellWebApp.gs` (redirector via `CONFIG!A2`) | — `doGet` langsung di `ns record.gs` | dibuang |
+| Login NIK/password: `userLogin`, `keepSessionAlive`, `revalidateUser`, throttle 5×/15 mnt | SSO `Session.getActiveUser()` | dihapus |
+| `getKaryawanProfileByNik_`, `getKaryawanProfileByEmail_`, `hasModuleAccess_`, `getModuleAccessMapFromRow_` | diporting ke `ns record.gs` (`...ByNik_` hanya untuk jalur scheduler) | dipindah |
+| `nsForbidden_`, `nsUserResponse_` | kontrak JSON endpoint domain | dihapus |
+| `tools/harness.js`, `tools/check_html.js` | tetap membaca `ACTIVE/` | tidak berubah |
+| — | `tools/verify-v2.cjs` (47 cek), `DECISION-001/002.md`, `README-DEPLOY.md` | baru |
+
+Aturan:
+
+- Mulai 12 Nov 2026 **semua perubahan kode HR dilakukan di `ACTIVE-v2/`**.
+- `ACTIVE/`= rujukan historis saja: jangan diedit, jangan dideploy ulang.
+- **Jangan menyalin file utuh dari `ACTIVE/` ke `ACTIVE-v2/`.** Auth lama (login/password lokal) bertentangan dengan SSO + gerbang admin yang sekarang berlaku.
+- Butuh fitur dari versi lama? **Port manual** bagian yang perlu saja, lalu **tambah cek baru** di `tools/verify-v2.cjs`.
+
 ## Sebelum mengedit simbol apa pun
 - `python -c "from shared_core.core_setup import run_gitnexus; run_gitnexus('impact', '<namaSimbol>', '-d', 'upstream', '-r', '0. HR DASHBAORD', repo_root='.')"` — wajib; laporkan blast radius ke user. Contoh: `nsBuildRecords_` = HIGH (5 caller: 4 endpoint + selfTest).
 - Gunakan GitNexus GLOBAL via `shared_core.run_gitnexus` (list args, aman untuk nama repo ber-spasi). Jangan pakai `.gitnexus/run.cjs` lokal.
